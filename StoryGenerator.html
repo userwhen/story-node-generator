@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<link rel="manifest" href="manifest.json">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(() => console.log('Service Worker 註冊成功'))
+      .catch(err => console.log('Service Worker 註冊失敗', err));
+  }
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遊戲劇本節點生成器</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; }
+        h1 { color: #569cd6; text-align: center; }
+        .container { display: flex; gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .panel { background-color: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); flex: 1; overflow-y: auto; max-height: 85vh; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #9cdcfe; font-weight: bold; }
+        input[type="text"], textarea, select, input[type="number"] { width: 100%; padding: 8px; background-color: #3c3c3c; border: 1px solid #555; color: #fff; border-radius: 4px; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        .option-block { border: 1px solid #444; padding: 15px; margin-bottom: 15px; border-radius: 6px; background-color: #2d2d2d; position: relative; }
+        .option-block h3 { margin-top: 0; color: #ce9178; font-size: 16px; }
+        .btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-add { background-color: #007acc; color: white; width: 100%; margin-bottom: 20px; }
+        .btn-add:hover { background-color: #005f9e; }
+        .btn-remove { background-color: #f44336; color: white; position: absolute; right: 10px; top: 10px; padding: 5px 10px; }
+        .btn-generate { background-color: #4caf50; color: white; width: 100%; padding: 15px; font-size: 16px; margin-top: 10px; }
+        .btn-generate:hover { background-color: #388e3c; }
+        .btn-copy { background-color: #d7ba7d; color: #1e1e1e; width: 100%; margin-top: 10px; }
+        pre { background-color: #1e1e1e; padding: 15px; border-radius: 4px; overflow-x: auto; color: #d4d4d4; font-family: Consolas, monospace; border: 1px solid #555; min-height: 400px; white-space: pre-wrap; }
+        .row { display: flex; gap: 10px; }
+        .col { flex: 1; }
+    </style>
+</head>
+<body>
+
+    <h1>🎮 遊戲劇本節點生成器 (Node Builder)</h1>
+
+    <div class="container">
+        <div class="panel">
+            <div class="form-group">
+                <label>節點 ID (例: evt_mimic_flower)</label>
+                <input type="text" id="nodeId" placeholder="必須是唯一的英文 ID">
+            </div>
+            <div class="form-group">
+                <label>需求標籤 ReqTags (用逗號分隔，例: adventure, wild)</label>
+                <input type="text" id="reqTags" placeholder="adventure, wild">
+            </div>
+
+            <div class="form-group">
+                <label>📖 主線劇情大綱</label>
+                <textarea id="mainZh" placeholder="中文劇情描述... (必填)"></textarea>
+                <textarea id="mainJp" placeholder="日文劇情描述... (選填)" style="margin-top: 5px;"></textarea>
+                <textarea id="mainKr" placeholder="韓文劇情描述... (選填)" style="margin-top: 5px;"></textarea>
+            </div>
+
+            <hr style="border-color: #555; margin: 20px 0;">
+            <label style="font-size: 18px; color: #4ec9b0;">🎯 玩家選項與結果設定</label>
+            
+            <div id="optionsContainer">
+                </div>
+
+            <button class="btn btn-add" onclick="addOption()">+ 新增一個玩家選項</button>
+            <button class="btn btn-generate" onclick="generateJSON()">⚙️ 生成腳本代碼</button>
+        </div>
+
+        <div class="panel">
+            <label>📝 生成結果 (JavaScript)</label>
+            <pre id="outputCode">// 生成的程式碼會顯示在這裡...</pre>
+            <button class="btn btn-copy" onclick="copyCode()">📋 複製程式碼</button>
+        </div>
+    </div>
+
+    <script>
+        let optionCount = 0;
+
+        function addOption() {
+            optionCount++;
+            const div = document.createElement('div');
+            div.className = 'option-block';
+            div.id = `opt-${optionCount}`;
+            div.innerHTML = `
+                <button class="btn btn-remove" onclick="document.getElementById('opt-${optionCount}').remove()">X</button>
+                <h3>選項 ${optionCount}</h3>
+                
+                <div class="form-group">
+                    <label>選項文字 (按鈕名稱)</label>
+                    <input type="text" class="opt-label-zh" placeholder="中文 (例如: 摘下花朵)">
+                    <input type="text" class="opt-label-jp" placeholder="日文 (選填)" style="margin-top:5px;">
+                    <input type="text" class="opt-label-kr" placeholder="韓文 (選填)" style="margin-top:5px;">
+                </div>
+
+                <div class="row form-group">
+                    <div class="col">
+                        <label>檢定屬性 (選填)</label>
+                        <select class="opt-stat">
+                            <option value="">無檢定</option>
+                            <option value="STR">力量 (STR)</option>
+                            <option value="INT">智力 (INT)</option>
+                            <option value="AGI">敏捷 (AGI)</option>
+                            <option value="LCK">幸運 (LCK)</option>
+                        </select>
+                    </div>
+                    <div class="col">
+                        <label>需求數值</label>
+                        <input type="number" class="opt-val" placeholder="例如: 5">
+                    </div>
+                </div>
+
+                <div class="row form-group">
+                    <div class="col"><label>獲得金幣 (Gold)</label><input type="number" class="opt-gold" placeholder="例如: 30"></div>
+                    <div class="col"><label>獲得經驗 (Exp)</label><input type="number" class="opt-exp" placeholder="例如: 15"></div>
+                    <div class="col"><label>扣除精力 (Energy)</label><input type="number" class="opt-energy" placeholder="例如: -10"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>增加標籤 Tags (逗號分隔)</label>
+                    <input type="text" class="opt-tags" placeholder="例如: item_found, cautious">
+                </div>
+
+                <div class="form-group">
+                    <label>🎬 選擇後的結果演出 (Next Scene)</label>
+                    <textarea class="opt-res-zh" placeholder="中文演出結果..."></textarea>
+                    <textarea class="opt-res-jp" placeholder="日文演出結果... (選填)" style="margin-top:5px;"></textarea>
+                    <textarea class="opt-res-kr" placeholder="韓文演出結果... (選填)" style="margin-top:5px;"></textarea>
+                </div>
+            `;
+            document.getElementById('optionsContainer').appendChild(div);
+        }
+
+        function generateJSON() {
+            const nodeId = document.getElementById('nodeId').value || 'evt_new_node';
+            const rawTags = document.getElementById('reqTags').value;
+            const reqTags = rawTags ? rawTags.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+            // 建立主對話
+            let mainTextObj = { zh: document.getElementById('mainZh').value || "（請填寫大綱）" };
+            if (document.getElementById('mainJp').value) mainTextObj.jp = document.getElementById('mainJp').value;
+            if (document.getElementById('mainKr').value) mainTextObj.kr = document.getElementById('mainKr').value;
+
+            const templateObj = {
+                id: nodeId,
+                type: 'middle',
+                reqTags: reqTags,
+                dialogue: [ { text: mainTextObj } ],
+                options: []
+            };
+
+            // 處理所有選項
+            const optBlocks = document.querySelectorAll('.option-block');
+            optBlocks.forEach(block => {
+                let opt = {
+                    label: { zh: block.querySelector('.opt-label-zh').value || "繼續" },
+                    action: "node_next"
+                };
+                
+                // 多語系標籤
+                if(block.querySelector('.opt-label-jp').value) opt.label.jp = block.querySelector('.opt-label-jp').value;
+                if(block.querySelector('.opt-label-kr').value) opt.label.kr = block.querySelector('.opt-label-kr').value;
+
+                // 檢定
+                const stat = block.querySelector('.opt-stat').value;
+                const val = parseInt(block.querySelector('.opt-val').value);
+                if (stat && !isNaN(val)) {
+                    opt.check = { stat: stat, val: val };
+                }
+
+                // 獎勵 Rewards
+                let rewards = {};
+                const gold = parseInt(block.querySelector('.opt-gold').value);
+                const exp = parseInt(block.querySelector('.opt-exp').value);
+                const energy = parseInt(block.querySelector('.opt-energy').value);
+                const tagsStr = block.querySelector('.opt-tags').value;
+                
+                if (!isNaN(gold)) rewards.gold = gold;
+                if (!isNaN(exp)) rewards.exp = exp;
+                if (!isNaN(energy)) rewards.energy = energy;
+                if (tagsStr) rewards.tags = tagsStr.split(',').map(s => s.trim()).filter(Boolean);
+
+                if (Object.keys(rewards).length > 0) {
+                    opt.rewards = rewards;
+                }
+
+                // 結果演出 Next Scene
+                const resZh = block.querySelector('.opt-res-zh').value;
+                if (resZh) {
+                    let nextTextObj = { zh: resZh };
+                    if(block.querySelector('.opt-res-jp').value) nextTextObj.jp = block.querySelector('.opt-res-jp').value;
+                    if(block.querySelector('.opt-res-kr').value) nextTextObj.kr = block.querySelector('.opt-res-kr').value;
+
+                    opt.nextScene = {
+                        dialogue: [{ text: nextTextObj }],
+                        options: [{ label: { zh: "繼續", jp: "続ける", kr: "계속" }, action: "advance_chain" }]
+                    };
+                } else {
+                    opt.action = "advance_chain"; // 如果沒有結果演出，就直接推進主線
+                }
+
+                templateObj.options.push(opt);
+            });
+
+            // 將物件轉為格式化的 JSON 字串
+            const jsonString = JSON.stringify(templateObj, null, 4);
+            const finalCode = `    DB.templates.push(\n${jsonString}\n    );`;
+            
+            document.getElementById('outputCode').textContent = finalCode;
+        }
+
+        function copyCode() {
+            const code = document.getElementById('outputCode').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('程式碼已複製到剪貼簿！');
+            });
+        }
+
+        // 預設給一個選項
+        window.onload = addOption;
+    </script>
+</body>
+</html>

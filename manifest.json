@@ -1,0 +1,15 @@
+{
+  "name": "劇本節點生成器",
+  "short_name": "劇本生成",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1e1e1e",
+  "theme_color": "#569cd6",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2906/2906274.png", 
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

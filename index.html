@@ -1,27 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<link rel="manifest" href="manifest.json">
-
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js')
-      .then(() => console.log('Service Worker 註冊成功'))
-      .catch(err => console.log('Service Worker 註冊失敗', err));
-  }
-</script>
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>遊戲劇本節點生成器 V2</title>
+    <title>遊戲劇本節點生成器 V4</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; }
         h1 { color: #569cd6; text-align: center; }
-        .container { display: flex; flex-wrap: wrap; gap: 20px; max-width: 1400px; margin: 0 auto; }
-        .panel { background-color: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); flex: 1; min-width: 400px; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; max-width: 1500px; margin: 0 auto; }
+        .panel { background-color: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); flex: 1; min-width: 450px; display: flex; flex-direction: column; }
+        .scroll-area { overflow-y: auto; max-height: 85vh; padding-right: 10px; flex: 1; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; color: #9cdcfe; font-weight: bold; }
         input[type="text"], textarea, select, input[type="number"] { width: 100%; padding: 8px; background-color: #3c3c3c; border: 1px solid #555; color: #fff; border-radius: 4px; box-sizing: border-box; }
-        textarea { resize: vertical; min-height: 60px; }
+        textarea { resize: none; overflow: hidden; min-height: 40px; } /* 自動延展設定 */
         .option-block { border: 1px solid #444; padding: 15px; margin-bottom: 15px; border-radius: 6px; background-color: #2d2d2d; position: relative; border-left: 4px solid #c586c0; }
         .option-block h3 { margin-top: 0; color: #ce9178; font-size: 16px; }
         .btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
@@ -29,8 +21,10 @@
         .btn-add:hover { background-color: #005f9e; }
         .btn-remove { background-color: #f44336; color: white; position: absolute; right: 10px; top: 10px; padding: 5px 10px; }
         .btn-generate { background-color: #4caf50; color: white; width: 100%; padding: 15px; font-size: 16px; margin-top: 10px; }
-        .btn-copy { background-color: #d7ba7d; color: #1e1e1e; width: 100%; margin-top: 10px; }
-        pre { background-color: #1e1e1e; padding: 15px; border-radius: 4px; overflow-x: auto; color: #d4d4d4; font-family: Consolas, monospace; border: 1px solid #555; min-height: 500px; white-space: pre-wrap; }
+        .btn-stash { background-color: #d7ba7d; color: #1e1e1e; width: 100%; padding: 10px; margin-top: 10px; }
+        .btn-export { background-color: #c586c0; color: white; width: 100%; padding: 10px; margin-top: 10px; }
+        .btn-clear { background-color: #f44336; color: white; margin-top: 10px; width: 100%; }
+        pre { background-color: #1e1e1e; padding: 15px; border-radius: 4px; overflow-x: auto; color: #d4d4d4; font-family: Consolas, monospace; border: 1px solid #555; white-space: pre-wrap; flex: 1; }
         .row { display: flex; gap: 10px; }
         .col { flex: 1; }
         .hub-only { display: none; background-color: #2b3a42; padding: 10px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #4ec9b0;}
@@ -39,62 +33,92 @@
 </head>
 <body>
 
-    <h1>🎮 劇本節點生成器 V2 (黃金標準版)</h1>
+    <h1>🎮 劇本節點生成器 V4 (支援暫存與一鍵匯出)</h1>
 
     <div class="container">
-        <div class="panel" style="max-height: 85vh; overflow-y: auto;">
-            <div class="row form-group">
-                <div class="col">
-                    <label>節點 ID</label>
-                    <input type="text" id="nodeId" placeholder="例如: sample_hub_room">
+        <div class="panel">
+            <div class="scroll-area">
+                <div class="row form-group">
+                    <div class="col">
+                        <label>劇本模式 (影響輸出格式)</label>
+                        <select id="scriptMode">
+                            <option value="random">🎲 隨機劇本 (DB.templates.push)</option>
+                            <option value="fixed">📌 固定劇本 (register)</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="col">
-                    <label>節點架構 (自動配置出口邏輯)</label>
-                    <select id="nodeType" onchange="toggleHubMode()">
-                        <option value="linear">▶️ 樣本 B：線性推進 (一般事件)</option>
-                        <option value="hub">🔄 樣本 A：箱庭 HUB (房間/探索)</option>
-                    </select>
+
+                <div class="row form-group">
+                    <div class="col">
+                        <label>當前節點 ID</label>
+                        <input type="text" id="nodeId" placeholder="例如: evt_flower_1">
+                    </div>
+                    <div class="col">
+                        <label>節點架構</label>
+                        <select id="nodeType" onchange="toggleHubMode()">
+                            <option value="linear">▶️ 樣本 B：線性推進 (一般事件)</option>
+                            <option value="hub">🔄 樣本 A：箱庭 HUB (房間/探索)</option>
+                        </select>
+                    </div>
                 </div>
+
+                <div class="form-group" id="reqTagsGroup">
+                    <label>需求標籤 ReqTags (逗號分隔)</label>
+                    <input type="text" id="reqTags" placeholder="horror, route_investigate">
+                </div>
+
+                <div class="form-group">
+                    <label>📖 主線對話 (dialogue) <small style="color:#d7ba7d;">*按 Enter 換行會自動切分對話</small></label>
+                    <textarea id="mainZh" class="lang-input" placeholder="中文劇情描述... (必填)" oninput="autoResize(this)"></textarea>
+                    <textarea id="mainJp" class="lang-input" placeholder="日文劇情描述... (選填)" oninput="autoResize(this)"></textarea>
+                    <textarea id="mainKr" class="lang-input" placeholder="韓文劇情描述... (選填)" oninput="autoResize(this)"></textarea>
+                </div>
+
+                <div id="hubFields" class="hub-only">
+                    <label>🏷️ 箱庭短描述 (briefDialogue) <small style="color:#d7ba7d;">*按 Enter 換行自動切分</small></label>
+                    <textarea id="briefZh" class="lang-input" placeholder="中文短描述 (例: 你還在昏暗的書房裡。)" oninput="autoResize(this)"></textarea>
+                </div>
+
+                <hr style="border-color: #555; margin: 20px 0;">
+                <label style="font-size: 18px; color: #4ec9b0;">🎯 玩家選項 (Options)</label>
+                
+                <div id="optionsContainer"></div>
+
+                <button class="btn btn-add" onclick="addOption()">+ 新增選項</button>
             </div>
-
-            <div class="form-group">
-                <label>需求標籤 ReqTags (逗號分隔)</label>
-                <input type="text" id="reqTags" placeholder="horror, route_investigate">
-            </div>
-
-            <div class="form-group">
-                <label>📖 主線對話 (dialogue)</label>
-                <input type="text" id="mainZh" class="lang-input" placeholder="中文劇情描述... (必填)">
-                <input type="text" id="mainJp" class="lang-input" placeholder="日文劇情描述... (選填)">
-                <input type="text" id="mainKr" class="lang-input" placeholder="韓文劇情描述... (選填)">
-            </div>
-
-            <div id="hubFields" class="hub-only">
-                <label>🏷️ 箱庭短描述 (briefDialogue)</label>
-                <input type="text" id="briefZh" class="lang-input" placeholder="中文短描述 (例: 你還在昏暗的書房裡。)">
-                <input type="text" id="briefJp" class="lang-input" placeholder="日文短描述 (選填)">
-                <input type="text" id="briefKr" class="lang-input" placeholder="韓文短描述 (選填)">
-                <small style="color:#aaa;">*系統將自動添加 <code>isHub: true</code> 與 <code>onEnter: free_time</code></small>
-            </div>
-
-            <hr style="border-color: #555; margin: 20px 0;">
-            <label style="font-size: 18px; color: #4ec9b0;">🎯 玩家選項 (Options)</label>
-            
-            <div id="optionsContainer"></div>
-
-            <button class="btn btn-add" onclick="addOption()">+ 新增選項</button>
-            <button class="btn btn-generate" onclick="generateJSON()">⚙️ 生成腳本代碼</button>
+            <button class="btn btn-generate" onclick="generateJSON()">⚙️ 生成單一腳本代碼</button>
+            <button class="btn btn-stash" onclick="addToStash()">📥 加入暫存區 (Stash)</button>
         </div>
 
         <div class="panel">
-            <label>📝 生成結果 (嚴格遵守 5 大準則)</label>
-            <pre id="outputCode">// 生成的程式碼會顯示在這裡...</pre>
-            <button class="btn btn-copy" onclick="copyCode()">📋 複製程式碼</button>
+            <div class="scroll-area">
+                <label>📝 當前生成結果</label>
+                <pre id="outputCode" style="min-height: 200px;">// 單一節點代碼...</pre>
+
+                <hr style="border-color: #555; margin: 20px 0;">
+                
+                <label style="color:#d7ba7d;">📦 劇本暫存區 (自動儲存至瀏覽器)</label>
+                <pre id="stashCode" style="min-height: 300px; background-color: #0d1117;">// 暫存的劇本會累積在這裡...</pre>
+            </div>
+            <div class="row">
+                <div class="col"><button class="btn btn-clear" onclick="clearStash()">🗑️ 清空暫存</button></div>
+                <div class="col"><button class="btn btn-export" onclick="downloadJS()">💾 匯出為 .js 檔案</button></div>
+            </div>
         </div>
     </div>
 
     <script>
         let optionCount = 0;
+
+        // 載入 localStorage
+        let stashContent = localStorage.getItem('story_generator_stash') || "";
+        document.getElementById('stashCode').textContent = stashContent ? stashContent : "// 暫存的劇本會累積在這裡...";
+
+        // 文字框自動延展
+        function autoResize(el) {
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight) + 'px';
+        }
 
         function toggleHubMode() {
             const isHub = document.getElementById('nodeType').value === 'hub';
@@ -111,33 +135,24 @@
                 <h3>選項 ${optionCount}</h3>
                 
                 <div class="form-group">
-                    <label>按鈕文字 (Label - 請精簡)</label>
-                    <input type="text" class="opt-label-zh lang-input" placeholder="中文 (例如: 搜查鐵櫃)">
-                    <input type="text" class="opt-label-jp lang-input" placeholder="日文 (選填)">
-                    <input type="text" class="opt-label-kr lang-input" placeholder="韓文 (選填)">
+                    <label>按鈕文字</label>
+                    <input type="text" class="opt-label-zh lang-input" placeholder="例如: 摘下花朵">
                 </div>
 
                 <div class="row form-group">
-                    <div class="col">
-                        <label>檢定屬性 (Check)</label>
-                        <select class="opt-stat">
-                            <option value="">無檢定</option>
-                            <option value="STR">力量 (STR)</option>
-                            <option value="INT">智力 (INT)</option>
-                            <option value="AGI">敏捷 (AGI)</option>
-                            <option value="LCK">幸運 (LCK)</option>
-                        </select>
-                    </div>
-                    <div class="col">
-                        <label>檢定難度</label>
-                        <input type="number" class="opt-val" placeholder="例如: 12">
-                    </div>
+                    <div class="col"><label>檢定屬性</label><select class="opt-stat"><option value="">無</option><option value="STR">STR</option><option value="INT">INT</option><option value="AGI">AGI</option><option value="LCK">LCK</option><option value="CHR">CHR</option><option value="VIT">VIT</option></select></div>
+                    <div class="col"><label>難度</label><input type="number" class="opt-val" placeholder="12"></div>
                 </div>
 
                 <div class="row form-group">
-                    <div class="col"><label>獲得金幣</label><input type="number" class="opt-gold" placeholder="例: 10"></div>
-                    <div class="col"><label>獲得經驗</label><input type="number" class="opt-exp" placeholder="例: 15"></div>
-                    <div class="col"><label>扣除精力</label><input type="number" class="opt-energy" placeholder="例: -5"></div>
+                    <div class="col"><label>得金幣</label><input type="number" class="opt-gold" placeholder="10"></div>
+                    <div class="col"><label>得經驗</label><input type="number" class="opt-exp" placeholder="15"></div>
+                    <div class="col"><label>扣精力</label><input type="number" class="opt-energy" placeholder="-5"></div>
+                </div>
+
+                <div class="form-group">
+                    <label style="color:#c586c0;">🎭 自訂狀態值增減 (VarOps) <small>*自動解析</small></label>
+                    <input type="text" class="opt-varops" placeholder="例: sanity -10, prestige +5, time_left -1">
                 </div>
 
                 <div class="form-group">
@@ -145,128 +160,192 @@
                     <input type="text" class="opt-tags" placeholder="例如: item_found">
                 </div>
 
+                <div class="form-group" style="background-color:#332a00; padding:10px; border-left:3px solid #d7ba7d;">
+                    <label style="color:#d7ba7d;">🔗 跳轉到獨立節點 ID</label>
+                    <input type="text" class="opt-next-id" placeholder="填寫此欄將直接跳轉。例: evt_flower_2">
+                </div>
+
                 <div class="form-group">
-                    <label>🎬 結果演出 (nextScene dialogue)</label>
-                    <textarea class="opt-res-zh lang-input" placeholder="中文演出結果 (若留空，則視為直接離開/推進)"></textarea>
-                    <textarea class="opt-res-jp lang-input" placeholder="日文演出結果 (選填)"></textarea>
-                    <textarea class="opt-res-kr lang-input" placeholder="韓文演出結果 (選填)"></textarea>
+                    <label>🎬 簡單結果演出 <small>*按 Enter 換行自動切分</small></label>
+                    <textarea class="opt-res-zh lang-input" placeholder="演出結果..." oninput="autoResize(this)"></textarea>
+                    <textarea class="opt-res-jp lang-input" placeholder="日文演出結果 (選填)" oninput="autoResize(this)"></textarea>
+                    <textarea class="opt-res-kr lang-input" placeholder="韓文演出結果 (選填)" oninput="autoResize(this)"></textarea>
                 </div>
                 
                 <div class="form-group">
-                    <label>❌ 檢定失敗演出 (onFail - 僅有檢定時生效)</label>
-                    <textarea class="opt-fail-zh" placeholder="中文失敗結果..."></textarea>
+                    <label>❌ 檢定失敗演出 (onFail) <small>*按 Enter 自動切分</small></label>
+                    <textarea class="opt-fail-zh" placeholder="失敗結果..." oninput="autoResize(this)"></textarea>
                 </div>
             `;
             document.getElementById('optionsContainer').appendChild(div);
         }
 
+        // 解析多語系與 Enter 換行
+        function parseDialogueLines(prefix, block = document) {
+            const zhText = (block.querySelector(`.${prefix}zh`) || block.querySelector(`#${prefix}Zh`))?.value;
+            const jpText = (block.querySelector(`.${prefix}jp`) || block.querySelector(`#${prefix}Jp`))?.value;
+            const krText = (block.querySelector(`.${prefix}kr`) || block.querySelector(`#${prefix}Kr`))?.value;
+
+            if (!zhText) return null;
+
+            const zhLines = zhText.split('\n').filter(l => l.trim() !== '');
+            const jpLines = jpText ? jpText.split('\n').filter(l => l.trim() !== '') : [];
+            const krLines = krText ? krText.split('\n').filter(l => l.trim() !== '') : [];
+
+            return zhLines.map((line, index) => {
+                let obj = { zh: line.trim() };
+                if (jpLines[index]) obj.jp = jpLines[index].trim();
+                if (krLines[index]) obj.kr = krLines[index].trim();
+                return { text: obj };
+            });
+        }
+
+        // 解析單行多語系 (給 Label 用)
         function getLangObj(prefix, block = document) {
             let obj = {};
-            const zh = block.querySelector(`.${prefix}zh`)?.value || block.querySelector(`#${prefix}Zh`)?.value;
-            const jp = block.querySelector(`.${prefix}jp`)?.value || block.querySelector(`#${prefix}Jp`)?.value;
-            const kr = block.querySelector(`.${prefix}kr`)?.value || block.querySelector(`#${prefix}Kr`)?.value;
+            const zh = block.querySelector(`.${prefix}zh`)?.value;
+            const jp = block.querySelector(`.${prefix}jp`)?.value;
+            const kr = block.querySelector(`.${prefix}kr`)?.value;
             if (zh) obj.zh = zh;
             if (jp) obj.jp = jp;
             if (kr) obj.kr = kr;
             return Object.keys(obj).length > 0 ? obj : null;
         }
 
+        // 解析 VarOps 語法 ("sanity -10, gold +5")
+        function parseVarOps(str) {
+            if (!str) return null;
+            const ops = [];
+            const parts = str.split(',');
+            for (let p of parts) {
+                const match = p.trim().match(/^([a-zA-Z0-9_]+)\s*([+\-=])\s*(\d+)$/);
+                if (match) {
+                    ops.push({ key: match[1], val: parseInt(match[3]), op: match[2] });
+                }
+            }
+            return ops.length > 0 ? ops : null;
+        }
+
         function generateJSON() {
             const isHub = document.getElementById('nodeType').value === 'hub';
+            const scriptMode = document.getElementById('scriptMode').value;
             const nodeId = document.getElementById('nodeId').value || 'new_node';
-            const reqTagsStr = document.getElementById('reqTags').value;
-            const reqTags = reqTagsStr ? reqTagsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+            
+            const templateObj = { id: nodeId };
 
-            // 建立基礎節點
-            const templateObj = {
-                id: nodeId,
-                type: 'middle',
-                reqTags: reqTags
-            };
+            // 只有隨機劇本才強制需要 type 和 reqTags
+            if (scriptMode === 'random') {
+                templateObj.type = 'middle';
+                const reqTagsStr = document.getElementById('reqTags').value;
+                if (reqTagsStr) templateObj.reqTags = reqTagsStr.split(',').map(s => s.trim()).filter(Boolean);
+            }
 
-            // 箱庭專屬設定
             if (isHub) {
                 templateObj.isHub = true;
                 templateObj.onEnter = { varOps: [{ key: 'free_time', val: 3, op: 'set' }] };
             }
 
-            // 主線對話
-            const mainText = getLangObj('main');
-            templateObj.dialogue = mainText ? [{ text: mainText }] : [{ text: { zh: "（請填寫對話）" } }];
+            const mainDialogue = parseDialogueLines('main');
+            templateObj.dialogue = mainDialogue || [{ text: { zh: "（請填寫對話）" } }];
 
-            // 箱庭短描述
             if (isHub) {
-                const briefText = getLangObj('brief');
-                if (briefText) templateObj.briefDialogue = [{ text: briefText }];
+                const briefDialogue = parseDialogueLines('brief');
+                if (briefDialogue) templateObj.briefDialogue = briefDialogue;
             }
 
             templateObj.options = [];
 
-            // 處理選項
             document.querySelectorAll('.option-block').forEach(block => {
                 let opt = { label: getLangObj('opt-label-', block) || { zh: "繼續" } };
                 
-                // 檢定
                 const stat = block.querySelector('.opt-stat').value;
                 const val = parseInt(block.querySelector('.opt-val').value);
                 if (stat && !isNaN(val)) opt.check = { stat: stat, val: val };
 
-                // 獎勵
                 let rewards = {};
                 const gold = parseInt(block.querySelector('.opt-gold').value);
                 const exp = parseInt(block.querySelector('.opt-exp').value);
                 const energy = parseInt(block.querySelector('.opt-energy').value);
                 const tagsStr = block.querySelector('.opt-tags').value;
+                const varOpsStr = block.querySelector('.opt-varops').value;
                 
                 if (!isNaN(gold)) rewards.gold = gold;
                 if (!isNaN(exp)) rewards.exp = exp;
                 if (!isNaN(energy)) rewards.energy = energy;
                 if (tagsStr) rewards.tags = tagsStr.split(',').map(s => s.trim()).filter(Boolean);
                 
-                // 若為 HUB 內的動作，自動消耗時間 (範例邏輯)
+                const parsedVarOps = parseVarOps(varOpsStr);
+                if (parsedVarOps) rewards.varOps = parsedVarOps;
+
                 if (isHub && block.querySelector('.opt-res-zh').value) {
                     if (!rewards.varOps) rewards.varOps = [];
                     rewards.varOps.push({ key: 'free_time', val: 1, op: '-' });
                 }
                 if (Object.keys(rewards).length > 0) opt.rewards = rewards;
 
-                // 失敗演出 (有檢定才生效)
                 if (opt.check) {
-                    const failZh = block.querySelector('.opt-fail-zh').value;
-                    if (failZh) opt.onFail = { text: { zh: failZh } };
+                    const failDialogue = parseDialogueLines('opt-fail-', block);
+                    if (failDialogue) opt.onFail = { dialogue: failDialogue };
                 }
 
-                // 結果演出 (nextScene)
-                const resText = getLangObj('opt-res-', block);
-                if (resText) {
-                    opt.action = "node_next"; // 有演出必為 node_next
+                const nextId = block.querySelector('.opt-next-id').value.trim();
+                const resDialogue = parseDialogueLines('opt-res-', block);
+
+                if (nextId) {
+                    opt.action = "node_next";
+                    opt.nextSceneId = nextId;
+                } else if (resDialogue) {
+                    opt.action = "node_next";
                     opt.nextScene = {
-                        dialogue: [{ text: resText }],
-                        // 自動判斷出口邏輯
-                        options: [{
-                            label: { zh: "繼續", jp: "続ける", kr: "계속" },
-                            action: isHub ? "map_return_hub" : "advance_chain"
-                        }]
+                        dialogue: resDialogue,
+                        options: [{ label: { zh: "繼續" }, action: isHub ? "map_return_hub" : "advance_chain" }]
                     };
                 } else {
-                    // 若無演出直接離開
-                    opt.action = "advance_chain"; 
+                    opt.action = isHub ? "map_return_hub" : "advance_chain"; 
                 }
 
                 templateObj.options.push(opt);
             });
 
-            // 輸出
             const jsonString = JSON.stringify(templateObj, null, 4);
-            const finalCode = `{\n    DB.templates.push(\n${jsonString.replace(/^/gm, '        ')}\n    );\n}`;
-            document.getElementById('outputCode').textContent = finalCode.substring(2, finalCode.length - 2); // 簡單去頭尾括號美化
+            const wrapperStart = scriptMode === 'random' ? '    DB.templates.push(\n' : '    register(\n';
+            const finalCode = `${wrapperStart}${jsonString.replace(/^/gm, '        ')}\n    );`;
+            
+            document.getElementById('outputCode').textContent = finalCode;
+            return finalCode;
         }
 
-        function copyCode() {
-            navigator.clipboard.writeText(document.getElementById('outputCode').textContent).then(() => alert('✅ 程式碼已複製！'));
+        // 暫存系統
+        function addToStash() {
+            const code = generateJSON();
+            stashContent += code + "\n\n";
+            localStorage.setItem('story_generator_stash', stashContent);
+            document.getElementById('stashCode').textContent = stashContent;
+            // 捲動到底部
+            const stashEl = document.getElementById('stashCode');
+            stashEl.scrollTop = stashEl.scrollHeight;
         }
 
-        window.onload = addOption;
+        function clearStash() {
+            if(confirm("確定要清空暫存區嗎？這無法復原喔！")) {
+                stashContent = "";
+                localStorage.setItem('story_generator_stash', stashContent);
+                document.getElementById('stashCode').textContent = "// 暫存的劇本會累積在這裡...";
+            }
+        }
+
+        function downloadJS() {
+            if(!stashContent) return alert("暫存區是空的！請先加入腳本。");
+            const blob = new Blob([stashContent], { type: 'text/javascript' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'generated_scripts.js';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        window.onload = () => { addOption(); };
     </script>
 </body>
 </html>

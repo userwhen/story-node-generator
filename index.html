@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>遊戲劇本節點生成器 V4</title>
+    <title>遊戲劇本生成與掃描器 V9 (全功能無損同步版)</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; }
-        h1 { color: #569cd6; text-align: center; }
-        .container { display: flex; flex-wrap: wrap; gap: 20px; max-width: 1500px; margin: 0 auto; }
-        .panel { background-color: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); flex: 1; min-width: 450px; display: flex; flex-direction: column; }
-        .scroll-area { overflow-y: auto; max-height: 85vh; padding-right: 10px; flex: 1; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; margin: 0; }
+        h1 { color: #569cd6; text-align: center; margin-top: 0;}
+        .container { display: flex; flex-wrap: wrap; gap: 20px; max-width: 1600px; margin: 0 auto; height: 90vh;}
+        .panel { background-color: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); flex: 1; min-width: 450px; display: flex; flex-direction: column; overflow: hidden;}
+        .scroll-area { overflow-y: auto; padding-right: 10px; flex: 1; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; color: #9cdcfe; font-weight: bold; }
         input[type="text"], textarea, select, input[type="number"] { width: 100%; padding: 8px; background-color: #3c3c3c; border: 1px solid #555; color: #fff; border-radius: 4px; box-sizing: border-box; }
-        textarea { resize: none; overflow: hidden; min-height: 40px; } /* 自動延展設定 */
+        textarea { resize: none; overflow: hidden; min-height: 40px; font-family: inherit;}
         .option-block { border: 1px solid #444; padding: 15px; margin-bottom: 15px; border-radius: 6px; background-color: #2d2d2d; position: relative; border-left: 4px solid #c586c0; }
         .option-block h3 { margin-top: 0; color: #ce9178; font-size: 16px; }
         .btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
@@ -24,81 +24,98 @@
         .btn-stash { background-color: #d7ba7d; color: #1e1e1e; width: 100%; padding: 10px; margin-top: 10px; }
         .btn-export { background-color: #c586c0; color: white; width: 100%; padding: 10px; margin-top: 10px; }
         .btn-clear { background-color: #f44336; color: white; margin-top: 10px; width: 100%; }
+        .btn-parse { background-color: #569cd6; color: white; width: 100%; padding: 10px; margin-bottom: 15px; }
         pre { background-color: #1e1e1e; padding: 15px; border-radius: 4px; overflow-x: auto; color: #d4d4d4; font-family: Consolas, monospace; border: 1px solid #555; white-space: pre-wrap; flex: 1; }
         .row { display: flex; gap: 10px; }
         .col { flex: 1; }
         .hub-only { display: none; background-color: #2b3a42; padding: 10px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #4ec9b0;}
         .lang-input { margin-bottom: 5px; }
+        .tabs { display: flex; border-bottom: 2px solid #444; margin-bottom: 15px; }
+        .tab-btn { background: none; border: none; color: #aaa; padding: 10px 20px; font-size: 16px; cursor: pointer; font-weight: bold; outline: none; }
+        .tab-btn.active { color: #569cd6; border-bottom: 3px solid #569cd6; }
+        .tab-content { display: none; height: 100%; flex-direction: column; }
+        .tab-content.active { display: flex; }
+        .scan-item { background: #2d2d2d; border-left: 4px solid #4ec9b0; padding: 10px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .scan-item.error { border-left-color: #f44336; }
+        .scan-item.warning { border-left-color: #d7ba7d; }
+        .scan-details { flex: 1; }
+        .scan-id { font-weight: bold; color: #ce9178; font-size: 1.1em; }
+        .err-msg { color: #f44336; font-size: 0.9em; margin: 2px 0;}
+        .warn-msg { color: #d7ba7d; font-size: 0.9em; margin: 2px 0;}
+        .logic-msg { color: #c586c0; font-size: 0.9em; margin: 2px 0; font-weight: bold;}
+        .btn-edit { background: #569cd6; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; margin-left: 10px; }
     </style>
 </head>
 <body>
 
-    <h1>🎮 劇本節點生成器 V4 (支援暫存與一鍵匯出)</h1>
+    <h1>🎮 劇本節點生成器 V9 (全功能無損同步版)</h1>
 
     <div class="container">
         <div class="panel">
-            <div class="scroll-area">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('editor')">✏️ 節點編輯器</button>
+                <button class="tab-btn" onclick="switchTab('scanner')">🔍 劇本除錯掃描器</button>
+            </div>
+
+            <div id="tab-editor" class="tab-content active scroll-area">
                 <div class="row form-group">
-                    <div class="col">
-                        <label>劇本模式 (影響輸出格式)</label>
-                        <select id="scriptMode">
-                            <option value="random">🎲 隨機劇本 (DB.templates.push)</option>
-                            <option value="fixed">📌 固定劇本 (register)</option>
-                        </select>
-                    </div>
+                    <div class="col"><label>劇本模式</label><select id="scriptMode"><option value="random">🎲 隨機 (DB.templates)</option><option value="fixed">📌 固定 (register)</option></select></div>
+                </div>
+                <div class="row form-group">
+                    <div class="col"><label>節點 ID</label><input type="text" id="nodeId"></div>
+                    <div class="col"><label>節點架構</label><select id="nodeType" onchange="toggleHubMode()"><option value="linear">▶️ 線性推進</option><option value="hub">🔄 箱庭 HUB</option></select></div>
                 </div>
 
-                <div class="row form-group">
-                    <div class="col">
-                        <label>當前節點 ID</label>
-                        <input type="text" id="nodeId" placeholder="例如: evt_flower_1">
-                    </div>
-                    <div class="col">
-                        <label>節點架構</label>
-                        <select id="nodeType" onchange="toggleHubMode()">
-                            <option value="linear">▶️ 樣本 B：線性推進 (一般事件)</option>
-                            <option value="hub">🔄 樣本 A：箱庭 HUB (房間/探索)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-group" id="reqTagsGroup">
-                    <label>需求標籤 ReqTags (逗號分隔)</label>
-                    <input type="text" id="reqTags" placeholder="horror, route_investigate">
-                </div>
+                <div class="form-group"><label>需求標籤 ReqTags (隨機模式用)</label><input type="text" id="reqTags"></div>
 
                 <div class="form-group">
-                    <label>📖 主線對話 (dialogue) <small style="color:#d7ba7d;">*按 Enter 換行會自動切分對話</small></label>
-                    <textarea id="mainZh" class="lang-input" placeholder="中文劇情描述... (必填)" oninput="autoResize(this)"></textarea>
-                    <textarea id="mainJp" class="lang-input" placeholder="日文劇情描述... (選填)" oninput="autoResize(this)"></textarea>
-                    <textarea id="mainKr" class="lang-input" placeholder="韓文劇情描述... (選填)" oninput="autoResize(this)"></textarea>
+                    <label>📖 主線對話 (dialogue)</label>
+                    <textarea id="mainZh" class="lang-input" placeholder="中文劇情..." oninput="autoResize(this)"></textarea>
+                    <textarea id="mainJp" class="lang-input" placeholder="日文劇情 (選填)" oninput="autoResize(this)"></textarea>
+                    <textarea id="mainKr" class="lang-input" placeholder="韓文劇情 (選填)" oninput="autoResize(this)"></textarea>
                 </div>
 
                 <div id="hubFields" class="hub-only">
-                    <label>🏷️ 箱庭短描述 (briefDialogue) <small style="color:#d7ba7d;">*按 Enter 換行自動切分</small></label>
-                    <textarea id="briefZh" class="lang-input" placeholder="中文短描述 (例: 你還在昏暗的書房裡。)" oninput="autoResize(this)"></textarea>
+                    <label>🏷️ 箱庭短描述 (briefDialogue)</label>
+                    <textarea id="briefZh" class="lang-input" placeholder="中文短描述" oninput="autoResize(this)"></textarea>
+                    <textarea id="briefJp" class="lang-input" placeholder="日文短描述" oninput="autoResize(this)"></textarea>
+                    <textarea id="briefKr" class="lang-input" placeholder="韓文短描述" oninput="autoResize(this)"></textarea>
                 </div>
 
                 <hr style="border-color: #555; margin: 20px 0;">
                 <label style="font-size: 18px; color: #4ec9b0;">🎯 玩家選項 (Options)</label>
                 
                 <div id="optionsContainer"></div>
-
-                <button class="btn btn-add" onclick="addOption()">+ 新增選項</button>
+<div class="row">
+    <div class="col">
+        <button class="btn btn-add" onclick="addOption()">+ 手動新增選項</button>
+    </div>
+    <div class="col">
+        <button class="btn" style="background-color: #c586c0; color: white; width: 100%;" onclick="pasteOption()">📥 貼上選項</button>
+    </div>
+</div>
+                <button class="btn btn-add" onclick="addOption()">+ 手動新增選項</button>
+                
+                <button class="btn btn-generate" onclick="generateJSON()">⚙️ 生成腳本代碼 (並同步至掃描區)</button>
+                <button class="btn btn-stash" onclick="addToStash()">📥 加入右側暫存區</button>
             </div>
-            <button class="btn btn-generate" onclick="generateJSON()">⚙️ 生成單一腳本代碼</button>
-            <button class="btn btn-stash" onclick="addToStash()">📥 加入暫存區 (Stash)</button>
+
+            <div id="tab-scanner" class="tab-content scroll-area">
+                <p style="color:#aaa; font-size:14px; margin-top:0;">將 JS 代碼貼在下方。系統將會掃描格式錯誤、邏輯死鎖，並<strong style="color:#ff9800;">自動幫你把 rewards 與 onEnter 歸位修復</strong>。</p>
+                <textarea id="scanInput" placeholder="貼上你的 JS 程式碼..." style="min-height: 200px; font-family: monospace;"></textarea>
+                <button class="btn btn-parse" onclick="runLinter()">🔎 執行深度邏輯掃描與自動修復</button>
+                <hr style="border-color: #555;">
+                <div id="scanResults"></div>
+            </div>
         </div>
 
         <div class="panel">
-            <div class="scroll-area">
-                <label>📝 當前生成結果</label>
-                <pre id="outputCode" style="min-height: 200px;">// 單一節點代碼...</pre>
-
-                <hr style="border-color: #555; margin: 20px 0;">
+            <div class="scroll-area" style="display:flex; flex-direction:column; height:100%;">
+                <label>📝 單筆生成預覽</label>
+                <pre id="outputCode" style="flex: 0.4; min-height:150px;">// 單一節點代碼...</pre>
                 
-                <label style="color:#d7ba7d;">📦 劇本暫存區 (自動儲存至瀏覽器)</label>
-                <pre id="stashCode" style="min-height: 300px; background-color: #0d1117;">// 暫存的劇本會累積在這裡...</pre>
+                <label style="color:#d7ba7d; margin-top:10px;">📦 劇本暫存區 (可匯出)</label>
+                <pre id="stashCode" style="flex: 1; background-color: #0d1117;">// 暫存的劇本會累積在這裡...</pre>
             </div>
             <div class="row">
                 <div class="col"><button class="btn btn-clear" onclick="clearStash()">🗑️ 清空暫存</button></div>
@@ -108,14 +125,24 @@
     </div>
 
     <script>
+        let parsedNodesDB = {}; 
         let optionCount = 0;
-
-        // 載入 localStorage
         let stashContent = localStorage.getItem('story_generator_stash') || "";
+        let currentEditingNodeId = null; 
+        let clipboardOption = null; 
+
         document.getElementById('stashCode').textContent = stashContent ? stashContent : "// 暫存的劇本會累積在這裡...";
 
-        // 文字框自動延展
+        // === UI 基礎操作 ===
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+        }
+
         function autoResize(el) {
+            if(!el) return;
             el.style.height = 'auto';
             el.style.height = (el.scrollHeight) + 'px';
         }
@@ -125,227 +152,289 @@
             document.getElementById('hubFields').style.display = isHub ? 'block' : 'none';
         }
 
-        function addOption() {
+        // 🌟 選項搬運功能
+        function pasteOption() {
+            if (!clipboardOption) return alert("剪貼簿為空！請先從掃描區點擊『📋 複製選項』");
+            addOption(clipboardOption);
+            alert("✅ 選項已貼入底部！");
+        }
+
+        function copyOptionToClipboard(optKey) {
+            clipboardOption = JSON.parse(JSON.stringify(window[optKey]));
+            alert(`已複製選項：「${clipboardOption.label?.zh || clipboardOption.label}」\n可至編輯器點擊『📥 貼上選項』。`);
+        }
+
+        // 🌟 完整欄位還原：多語系 + VarOps + 獎勵
+        function addOption(initialData = null) {
             optionCount++;
             const div = document.createElement('div');
             div.className = 'option-block';
             div.id = `opt-${optionCount}`;
             div.innerHTML = `
-                <button class="btn btn-remove" onclick="document.getElementById('opt-${optionCount}').remove()">X</button>
+                <button class="btn btn-remove" onclick="this.parentElement.remove()">X</button>
                 <h3>選項 ${optionCount}</h3>
-                
-                <div class="form-group">
-                    <label>按鈕文字</label>
-                    <input type="text" class="opt-label-zh lang-input" placeholder="例如: 摘下花朵">
+                <div class="form-group"><label>按鈕文字 (zh/jp/kr)</label>
+                    <input type="text" class="opt-label-zh lang-input" placeholder="中文">
+                    <input type="text" class="opt-label-jp lang-input" placeholder="日文">
+                    <input type="text" class="opt-label-kr lang-input" placeholder="韓文">
                 </div>
-
                 <div class="row form-group">
-                    <div class="col"><label>檢定屬性</label><select class="opt-stat"><option value="">無</option><option value="STR">STR</option><option value="INT">INT</option><option value="AGI">AGI</option><option value="LCK">LCK</option><option value="CHR">CHR</option><option value="VIT">VIT</option></select></div>
-                    <div class="col"><label>難度</label><input type="number" class="opt-val" placeholder="12"></div>
+                    <div class="col"><label>需求標籤 (condition.tags)</label><input type="text" class="opt-cond-tags"></div>
+                    <div class="col"><label>排除標籤 (noTag)</label><input type="text" class="opt-cond-notags"></div>
                 </div>
-
                 <div class="row form-group">
-                    <div class="col"><label>得金幣</label><input type="number" class="opt-gold" placeholder="10"></div>
-                    <div class="col"><label>得經驗</label><input type="number" class="opt-exp" placeholder="15"></div>
-                    <div class="col"><label>扣精力</label><input type="number" class="opt-energy" placeholder="-5"></div>
+                    <div class="col"><label>檢定屬性</label><select class="opt-stat"><option value="">無</option><option value="STR">STR</option><option value="INT">INT</option><option value="AGI">AGI</option><option value="LCK">LCK</option></select></div>
+                    <div class="col"><label>難度</label><input type="number" class="opt-val"></div>
                 </div>
-
-                <div class="form-group">
-                    <label style="color:#c586c0;">🎭 自訂狀態值增減 (VarOps) <small>*自動解析</small></label>
-                    <input type="text" class="opt-varops" placeholder="例: sanity -10, prestige +5, time_left -1">
+                <div class="row form-group">
+                    <div class="col"><label>得金幣</label><input type="number" class="opt-gold"></div>
+                    <div class="col"><label>得經驗</label><input type="number" class="opt-exp"></div>
+                    <div class="col"><label>扣精力</label><input type="number" class="opt-energy"></div>
                 </div>
-
-                <div class="form-group">
-                    <label>增加標籤 (逗號分隔)</label>
-                    <input type="text" class="opt-tags" placeholder="例如: item_found">
+                <div class="form-group"><label>狀態增減 (VarOps: key op val)</label><input type="text" class="opt-varops"></div>
+                <div class="form-group"><label>給予標籤 (Tags)</label><input type="text" class="opt-tags"></div>
+                <div class="form-group"><label>移除標籤 (removeTags)</label><input type="text" class="opt-rm-tags"></div>
+                <div class="form-group"><label>跳轉 ID (nextSceneId)</label><input type="text" class="opt-next-id"></div>
+                <div class="form-group"><label>🎬 成功演出 (nextScene)</label>
+                    <textarea class="opt-res-zh lang-input" placeholder="中文" oninput="autoResize(this)"></textarea>
+                    <textarea class="opt-res-jp lang-input" placeholder="日文" oninput="autoResize(this)"></textarea>
+                    <textarea class="opt-res-kr lang-input" placeholder="韓文" oninput="autoResize(this)"></textarea>
                 </div>
-
-                <div class="form-group" style="background-color:#332a00; padding:10px; border-left:3px solid #d7ba7d;">
-                    <label style="color:#d7ba7d;">🔗 跳轉到獨立節點 ID</label>
-                    <input type="text" class="opt-next-id" placeholder="填寫此欄將直接跳轉。例: evt_flower_2">
-                </div>
-
-                <div class="form-group">
-                    <label>🎬 簡單結果演出 <small>*按 Enter 換行自動切分</small></label>
-                    <textarea class="opt-res-zh lang-input" placeholder="演出結果..." oninput="autoResize(this)"></textarea>
-                    <textarea class="opt-res-jp lang-input" placeholder="日文演出結果 (選填)" oninput="autoResize(this)"></textarea>
-                    <textarea class="opt-res-kr lang-input" placeholder="韓文演出結果 (選填)" oninput="autoResize(this)"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label>❌ 檢定失敗演出 (onFail) <small>*按 Enter 自動切分</small></label>
-                    <textarea class="opt-fail-zh" placeholder="失敗結果..." oninput="autoResize(this)"></textarea>
-                </div>
+                <div class="form-group"><label>❌ 失敗演出 (onFail)</label><textarea class="opt-fail-zh" oninput="autoResize(this)"></textarea></div>
             `;
             document.getElementById('optionsContainer').appendChild(div);
+
+            if (initialData) fillOptionData(div, initialData);
+            return div;
         }
 
-        // 解析多語系與 Enter 換行
-        function parseDialogueLines(prefix, block = document) {
-            const zhText = (block.querySelector(`.${prefix}zh`) || block.querySelector(`#${prefix}Zh`))?.value;
-            const jpText = (block.querySelector(`.${prefix}jp`) || block.querySelector(`#${prefix}Jp`))?.value;
-            const krText = (block.querySelector(`.${prefix}kr`) || block.querySelector(`#${prefix}Kr`))?.value;
+        // ======================================================================
+        // === 核心：V12 智慧修復 Linter (正則解析 + 遞迴掃描 + 智慧補全) ===
+        // ======================================================================
+        function runLinter() {
+            const code = document.getElementById('scanInput').value;
+            if(!code.trim()) return alert("請貼上代碼！");
 
-            if (!zhText) return null;
+            let extractedNodes = [];
+            // 策略：先用正則嘗試切分 register 或 DB.templates.push
+            const regex = /(?:register|push)\s*\(\s*([\s\S]*?)\s*\)\s*;/g;
+            let match;
+            while ((match = regex.exec(code)) !== null) {
+                try {
+                    const nodeData = eval("(" + match[1] + ")");
+                    extractedNodes.push({ mode: match[0].includes('push') ? 'random' : 'fixed', data: nodeData });
+                } catch(e) {}
+            }
 
-            const zhLines = zhText.split('\n').filter(l => l.trim() !== '');
-            const jpLines = jpText ? jpText.split('\n').filter(l => l.trim() !== '') : [];
-            const krLines = krText ? krText.split('\n').filter(l => l.trim() !== '') : [];
-
-            return zhLines.map((line, index) => {
-                let obj = { zh: line.trim() };
-                if (jpLines[index]) obj.jp = jpLines[index].trim();
-                if (krLines[index]) obj.kr = krLines[index].trim();
-                return { text: obj };
-            });
-        }
-
-        // 解析單行多語系 (給 Label 用)
-        function getLangObj(prefix, block = document) {
-            let obj = {};
-            const zh = block.querySelector(`.${prefix}zh`)?.value;
-            const jp = block.querySelector(`.${prefix}jp`)?.value;
-            const kr = block.querySelector(`.${prefix}kr`)?.value;
-            if (zh) obj.zh = zh;
-            if (jp) obj.jp = jp;
-            if (kr) obj.kr = kr;
-            return Object.keys(obj).length > 0 ? obj : null;
-        }
-
-        // 解析 VarOps 語法 ("sanity -10, gold +5")
-        function parseVarOps(str) {
-            if (!str) return null;
-            const ops = [];
-            const parts = str.split(',');
-            for (let p of parts) {
-                const match = p.trim().match(/^([a-zA-Z0-9_]+)\s*([+\-=])\s*(\d+)$/);
-                if (match) {
-                    ops.push({ key: match[1], val: parseInt(match[3]), op: match[2] });
+            if (extractedNodes.length === 0) {
+                try {
+                    let dummyDB = { templates: { push: function(...args) { args.forEach(a => extractedNodes.push({mode:'random', data:a})); } } };
+                    let dummyRegister = function(obj) { extractedNodes.push({mode:'fixed', data:obj}); };
+                    new Function('DB', 'register', code)(dummyDB, dummyRegister);
+                } catch (e) {
+                    document.getElementById('scanResults').innerHTML = `<p style="color:red;">❌ 解析失敗：${e.message}</p>`;
+                    return;
                 }
             }
-            return ops.length > 0 ? ops : null;
+
+            parsedNodesDB = {}; 
+            let resultsHTML = "";
+            let globalProvidedTags = new Set();
+            
+            // 1. 全局發放標籤蒐集 (遞迴)
+            function scanTags(node) {
+                if(!node) return;
+                const r = node.onEnter || node.rewards || node.onFirstEnter;
+                if(r?.tags) r.tags.forEach(t => globalProvidedTags.add(t));
+                if(node.options) node.options.forEach(o => {
+                    if(o.rewards?.tags) o.rewards.tags.forEach(t => globalProvidedTags.add(t));
+                    scanTags(o.nextScene); scanTags(o.failScene);
+                });
+            }
+            extractedNodes.forEach(item => scanTags(item.data));
+
+            // 2. 節點檢查與自動修正
+            extractedNodes.forEach(item => {
+                const node = item.data;
+                const id = node.id || "unnamed";
+                const mode = item.mode;
+                parsedNodesDB[id] = item;
+
+                let warnings = [], logicErrors = [];
+
+                // 智慧修復：場景獎勵歸位
+                if (node.rewards) { node.onEnter = node.rewards; delete node.rewards; warnings.push("🔧 場景 rewards -> onEnter"); }
+
+                // 智慧補全：isHub 與 noMap
+                if (id.toLowerCase().includes('hub') && node.isHub === undefined) {
+                    node.isHub = true; warnings.push("💡 自動補上 isHub: true");
+                }
+                if (node.isHub && node.noMap === undefined) {
+                    node.noMap = (mode === 'fixed');
+                    warnings.push(`💡 noMap 智慧設為 ${node.noMap}`);
+                }
+
+                // 選項修復與死鎖檢查
+                let optHTML = "";
+                if (node.options) {
+                    node.options.forEach((opt, idx) => {
+                        const optName = opt.label?.zh || opt.label || "未命名";
+                        if (opt.onEnter) { opt.rewards = opt.onEnter; delete opt.onEnter; warnings.push(`🔧 選項 [${optName}] onEnter -> rewards`); }
+                        
+                        // 檢查死鎖
+                        const req = (opt.condition?.tags || []).concat(opt.condition?.tag ? [opt.condition.tag] : []);
+                        req.forEach(t => { if(!globalProvidedTags.has(t)) logicErrors.push(`💀 缺少標籤 '${t}'`); });
+
+                        // 生成複製按鈕
+                        const optId = `copy_${id.replace(/\W/g,'_')}_${idx}`;
+                        window[optId] = opt;
+                        optHTML += `<div style="margin-top:4px;"><span style="font-size:0.75rem; color:#aaa;">▪️ ${optName}</span> <button class="btn-edit" style="font-size:0.65rem; padding:1px 4px; background:#4ec9b0;" onclick="copyOptionToClipboard('${optId}')">📋 複製</button></div>`;
+                    });
+                }
+
+                let statusClass = logicErrors.length > 0 ? 'error' : (warnings.length > 0 ? 'warning' : '');
+                resultsHTML += `
+                    <div class="scan-item ${statusClass}">
+                        <div class="scan-details"><div class="scan-id">${id}</div>${logicErrors.concat(warnings).map(m=>`<p style="font-size:0.8rem;margin:0;">${m}</p>`).join('')}${optHTML}</div>
+                        <button class="btn-edit" onclick="loadNodeData('${id}')">✏️ 編輯</button>
+                    </div>`;
+            });
+
+            document.getElementById('scanResults').innerHTML = resultsHTML || "找不到節點";
+            syncParsedDBToScanner(); 
+        }
+
+        // === 同步與生成邏輯 ===
+        function syncParsedDBToScanner() {
+            let fullCode = "";
+            for (let id in parsedNodesDB) {
+                const item = parsedNodesDB[id];
+                const jsonStr = JSON.stringify(item.data, null, 4);
+                fullCode += (item.mode === 'random' ? `    DB.templates.push(\n` : `    register(\n`) + 
+                            `${jsonStr.replace(/^/gm, '        ')}\n    );\n\n`;
+            }
+            document.getElementById('scanInput').value = fullCode.trim();
+        }
+
+        function fillOptionData(block, opt) {
+            const getVal = (o, path) => path.split('.').reduce((acc, part) => acc && acc[part], o);
+            block.querySelector('.opt-label-zh').value = opt.label?.zh || opt.label || '';
+            block.querySelector('.opt-label-jp').value = opt.label?.jp || '';
+            block.querySelector('.opt-label-kr').value = opt.label?.kr || '';
+            if(opt.condition?.tags) block.querySelector('.opt-cond-tags').value = opt.condition.tags.join(',');
+            if(opt.condition?.noTag) block.querySelector('.opt-cond-notags').value = opt.condition.noTag;
+            if(opt.check) {
+                block.querySelector('.opt-stat').value = opt.check.stat;
+                block.querySelector('.opt-val').value = opt.check.val;
+            }
+            if(opt.rewards) {
+                block.querySelector('.opt-gold').value = opt.rewards.gold || '';
+                block.querySelector('.opt-exp').value = opt.rewards.exp || '';
+                block.querySelector('.opt-energy').value = opt.rewards.energy || '';
+                block.querySelector('.opt-tags').value = (opt.rewards.tags || []).join(',');
+                block.querySelector('.opt-rm-tags').value = (opt.rewards.removeTags || []).join(',');
+                if(opt.rewards.varOps) block.querySelector('.opt-varops').value = opt.rewards.varOps.map(v=>`${v.key} ${v.op}${v.val}`).join(',');
+            }
+            block.querySelector('.opt-next-id').value = opt.nextSceneId || '';
+            const ns = opt.nextScene;
+            if(ns) {
+                const nsD = ns.dialogue || [];
+                block.querySelector('.opt-res-zh').value = nsD.map(d=>d.text?.zh).filter(Boolean).join('\n') || ns.text?.zh || "";
+                block.querySelector('.opt-res-jp').value = nsD.map(d=>d.text?.jp).filter(Boolean).join('\n');
+                block.querySelector('.opt-res-kr').value = nsD.map(d=>d.text?.kr).filter(Boolean).join('\n');
+            }
+            if(opt.onFail) block.querySelector('.opt-fail-zh').value = (opt.onFail.dialogue||[]).map(d=>d.text?.zh).join('\n') || opt.onFail.text?.zh || "";
         }
 
         function generateJSON() {
+            const nodeId = document.getElementById('nodeId').value || 'new_node';
             const isHub = document.getElementById('nodeType').value === 'hub';
             const scriptMode = document.getElementById('scriptMode').value;
-            const nodeId = document.getElementById('nodeId').value || 'new_node';
             
-            const templateObj = { id: nodeId };
+            const getLines = (id) => document.getElementById(id).value.split('\n').filter(l=>l.trim());
+            const buildDiag = (prefix) => {
+                const zh = getLines(prefix+'Zh'), jp = getLines(prefix+'Jp'), kr = getLines(prefix+'Kr');
+                if(!zh.length) return null;
+                return zh.map((l, i) => ({ text: { zh: l, jp: jp[i], kr: kr[i] } }));
+            };
 
-            // 只有隨機劇本才強制需要 type 和 reqTags
-            if (scriptMode === 'random') {
-                templateObj.type = 'middle';
-                const reqTagsStr = document.getElementById('reqTags').value;
-                if (reqTagsStr) templateObj.reqTags = reqTagsStr.split(',').map(s => s.trim()).filter(Boolean);
-            }
+            let obj = { id: nodeId };
+            if(isHub) obj.isHub = true;
+            if(scriptMode === 'random') obj.type = 'middle';
+            
+            obj.dialogue = buildDiag('main') || [{ text: { zh: "..." } }];
+            if(isHub) obj.briefDialogue = buildDiag('brief');
 
-            if (isHub) {
-                templateObj.isHub = true;
-                templateObj.onEnter = { varOps: [{ key: 'free_time', val: 3, op: 'set' }] };
-            }
-
-            const mainDialogue = parseDialogueLines('main');
-            templateObj.dialogue = mainDialogue || [{ text: { zh: "（請填寫對話）" } }];
-
-            if (isHub) {
-                const briefDialogue = parseDialogueLines('brief');
-                if (briefDialogue) templateObj.briefDialogue = briefDialogue;
-            }
-
-            templateObj.options = [];
-
+            obj.options = [];
             document.querySelectorAll('.option-block').forEach(block => {
-                let opt = { label: getLangObj('opt-label-', block) || { zh: "繼續" } };
-                
-                const stat = block.querySelector('.opt-stat').value;
-                const val = parseInt(block.querySelector('.opt-val').value);
-                if (stat && !isNaN(val)) opt.check = { stat: stat, val: val };
+                const getInp = (cls) => block.querySelector('.'+cls).value;
+                let opt = { label: { zh: getInp('opt-label-zh') || "繼續" } };
+                if(getInp('opt-label-jp')) opt.label.jp = getInp('opt-label-jp');
+                if(getInp('opt-label-kr')) opt.label.kr = getInp('opt-label-kr');
 
-                let rewards = {};
-                const gold = parseInt(block.querySelector('.opt-gold').value);
-                const exp = parseInt(block.querySelector('.opt-exp').value);
-                const energy = parseInt(block.querySelector('.opt-energy').value);
-                const tagsStr = block.querySelector('.opt-tags').value;
-                const varOpsStr = block.querySelector('.opt-varops').value;
+                if(getInp('opt-cond-tags')) opt.condition = { tags: getInp('opt-cond-tags').split(',').map(s=>s.trim()) };
                 
-                if (!isNaN(gold)) rewards.gold = gold;
-                if (!isNaN(exp)) rewards.exp = exp;
-                if (!isNaN(energy)) rewards.energy = energy;
-                if (tagsStr) rewards.tags = tagsStr.split(',').map(s => s.trim()).filter(Boolean);
-                
-                const parsedVarOps = parseVarOps(varOpsStr);
-                if (parsedVarOps) rewards.varOps = parsedVarOps;
-
-                if (isHub && block.querySelector('.opt-res-zh').value) {
-                    if (!rewards.varOps) rewards.varOps = [];
-                    rewards.varOps.push({ key: 'free_time', val: 1, op: '-' });
+                let rew = {};
+                if(getInp('opt-gold')) rew.gold = parseInt(getInp('opt-gold'));
+                if(getInp('opt-tags')) rew.tags = getInp('opt-tags').split(',').map(s=>s.trim());
+                if(getInp('opt-varops')) {
+                    rew.varOps = getInp('opt-varops').split(',').map(s => {
+                        const m = s.trim().match(/^(\w+)\s*([+\-=])\s*(\d+)$/);
+                        return m ? { key: m[1], op: m[2], val: parseInt(m[3]) } : null;
+                    }).filter(Boolean);
                 }
-                if (Object.keys(rewards).length > 0) opt.rewards = rewards;
-
-                if (opt.check) {
-                    const failDialogue = parseDialogueLines('opt-fail-', block);
-                    if (failDialogue) opt.onFail = { dialogue: failDialogue };
-                }
-
-                const nextId = block.querySelector('.opt-next-id').value.trim();
-                const resDialogue = parseDialogueLines('opt-res-', block);
-
-                if (nextId) {
+                
+                const nId = getInp('opt-next-id'), resZh = getInp('opt-res-zh');
+                if(nId || resZh) {
                     opt.action = "node_next";
-                    opt.nextSceneId = nextId;
-                } else if (resDialogue) {
-                    opt.action = "node_next";
-                    opt.nextScene = {
-                        dialogue: resDialogue,
-                        options: [{ label: { zh: "繼續" }, action: isHub ? "map_return_hub" : "advance_chain" }]
-                    };
+                    if(nId) opt.nextSceneId = nId;
+                    if(resZh) opt.nextScene = { onEnter: Object.keys(rew).length?rew:undefined, dialogue: [{ text: { zh: resZh, jp: getInp('opt-res-jp'), kr: getInp('opt-res-kr') } }] };
+                    else if(Object.keys(rew).length) opt.rewards = rew;
                 } else {
-                    opt.action = isHub ? "map_return_hub" : "advance_chain"; 
+                    opt.action = isHub ? "map_return_hub" : "advance_chain";
+                    if(Object.keys(rew).length) opt.rewards = rew;
                 }
-
-                templateObj.options.push(opt);
+                obj.options.push(opt);
             });
 
-            const jsonString = JSON.stringify(templateObj, null, 4);
-            const wrapperStart = scriptMode === 'random' ? '    DB.templates.push(\n' : '    register(\n';
-            const finalCode = `${wrapperStart}${jsonString.replace(/^/gm, '        ')}\n    );`;
+            const final = (scriptMode === 'random' ? `    DB.templates.push(\n` : `    register(\n`) + 
+                          `${JSON.stringify(obj, null, 4).replace(/^/gm, '        ')}\n    );`;
             
-            document.getElementById('outputCode').textContent = finalCode;
-            return finalCode;
-        }
-
-        // 暫存系統
-        function addToStash() {
-            const code = generateJSON();
-            stashContent += code + "\n\n";
-            localStorage.setItem('story_generator_stash', stashContent);
-            document.getElementById('stashCode').textContent = stashContent;
-            // 捲動到底部
-            const stashEl = document.getElementById('stashCode');
-            stashEl.scrollTop = stashEl.scrollHeight;
-        }
-
-        function clearStash() {
-            if(confirm("確定要清空暫存區嗎？這無法復原喔！")) {
-                stashContent = "";
-                localStorage.setItem('story_generator_stash', stashContent);
-                document.getElementById('stashCode').textContent = "// 暫存的劇本會累積在這裡...";
+            document.getElementById('outputCode').textContent = final;
+            if(currentEditingNodeId) {
+                parsedNodesDB[nodeId] = { mode: scriptMode, data: obj };
+                if(currentEditingNodeId !== nodeId) delete parsedNodesDB[currentEditingNodeId];
+                currentEditingNodeId = nodeId; syncParsedDBToScanner();
             }
+            return final;
         }
 
-        function downloadJS() {
-            if(!stashContent) return alert("暫存區是空的！請先加入腳本。");
-            const blob = new Blob([stashContent], { type: 'text/javascript' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'generated_scripts.js';
-            a.click();
-            URL.revokeObjectURL(url);
+        // 載入編輯
+        function loadNodeData(id) {
+            const item = parsedNodesDB[id]; if(!item) return;
+            currentEditingNodeId = id; const node = item.data;
+            document.getElementById('optionsContainer').innerHTML = '';
+            document.getElementById('nodeId').value = node.id || '';
+            document.getElementById('nodeType').value = node.isHub ? 'hub' : 'linear';
+            toggleHubMode();
+            const dStr = (arr, l) => (arr||[]).map(d => d.text?.[l]).filter(Boolean).join('\n');
+            document.getElementById('mainZh').value = dStr(node.dialogue, 'zh');
+            document.getElementById('mainJp').value = dStr(node.dialogue, 'jp');
+            document.getElementById('mainKr').value = dStr(node.dialogue, 'kr');
+            if(node.isHub) {
+                document.getElementById('briefZh').value = dStr(node.briefDialogue, 'zh');
+                document.getElementById('briefJp').value = dStr(node.briefDialogue, 'jp');
+                document.getElementById('briefKr').value = dStr(node.briefDialogue, 'kr');
+            }
+            if(node.options) node.options.forEach(o => addOption(o));
+            switchTab('editor');
+            document.querySelectorAll('textarea').forEach(autoResize);
         }
 
-        window.onload = () => { addOption(); };
+        function addToStash() { stashContent += generateJSON() + "\n\n"; localStorage.setItem('story_generator_stash', stashContent); document.getElementById('stashCode').textContent = stashContent; }
+        function clearStash() { if(confirm("確定？")) { stashContent = ""; localStorage.setItem('story_generator_stash', ""); document.getElementById('stashCode').textContent = "// 清空"; } }
+        function downloadJS() { const blob = new Blob([stashContent], { type: 'text/javascript' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'export.js'; a.click(); }
+        window.onload = () => { if(!document.querySelector('.option-block')) addOption(); };
     </script>
 </body>
 </html>

@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>遊戲劇本生成與掃描器 V9 (全功能無損同步版)</title>
+    <title>遊戲劇本生成與掃描器 V14 (圖形化組合版)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; margin: 0; }
         h1 { color: #569cd6; text-align: center; margin-top: 0;}
         .container { display: flex; flex-wrap: wrap; gap: 20px; max-width: 1600px; margin: 0 auto; height: 90vh;}
-        .panel { background-color: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); flex: 1; min-width: 450px; display: flex; flex-direction: column; overflow: hidden;}
+        .panel { background-color: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); flex: 1; min-width: 500px; display: flex; flex-direction: column; overflow: hidden;}
         .scroll-area { overflow-y: auto; padding-right: 10px; flex: 1; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; color: #9cdcfe; font-weight: bold; }
+        .hint-text { font-size: 0.8rem; color: #888; font-weight: normal; margin-left: 8px; }
         input[type="text"], textarea, select, input[type="number"] { width: 100%; padding: 8px; background-color: #3c3c3c; border: 1px solid #555; color: #fff; border-radius: 4px; box-sizing: border-box; }
-        textarea { resize: none; overflow: hidden; min-height: 40px; font-family: inherit;}
-        .option-block { border: 1px solid #444; padding: 15px; margin-bottom: 15px; border-radius: 6px; background-color: #2d2d2d; position: relative; border-left: 4px solid #c586c0; }
+        textarea { resize: none; overflow: hidden; min-height: 42px; line-height: 1.5; font-family: inherit;}
+        .option-block { border: 1px solid #444; padding: 15px; margin-bottom: 15px; border-radius: 6px; background-color: #2d2d2d; position: relative; border-left: 4px solid #c586c0; transition: 0.3s; }
         .option-block h3 { margin-top: 0; color: #ce9178; font-size: 16px; }
         .btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-add { background-color: #007acc; color: white; width: 100%; margin-bottom: 20px; }
@@ -24,98 +25,181 @@
         .btn-stash { background-color: #d7ba7d; color: #1e1e1e; width: 100%; padding: 10px; margin-top: 10px; }
         .btn-export { background-color: #c586c0; color: white; width: 100%; padding: 10px; margin-top: 10px; }
         .btn-clear { background-color: #f44336; color: white; margin-top: 10px; width: 100%; }
-        .btn-parse { background-color: #569cd6; color: white; width: 100%; padding: 10px; margin-bottom: 15px; }
+        .btn-parse { background-color: #569cd6; color: white; width: 100%; padding: 12px; margin-bottom: 15px; font-size: 15px; }
         pre { background-color: #1e1e1e; padding: 15px; border-radius: 4px; overflow-x: auto; color: #d4d4d4; font-family: Consolas, monospace; border: 1px solid #555; white-space: pre-wrap; flex: 1; }
         .row { display: flex; gap: 10px; }
         .col { flex: 1; }
-        .hub-only { display: none; background-color: #2b3a42; padding: 10px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #4ec9b0;}
+        .hub-only { display: none; background-color: #2b3a42; padding: 15px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #4ec9b0;}
         .lang-input { margin-bottom: 5px; }
         .tabs { display: flex; border-bottom: 2px solid #444; margin-bottom: 15px; }
         .tab-btn { background: none; border: none; color: #aaa; padding: 10px 20px; font-size: 16px; cursor: pointer; font-weight: bold; outline: none; }
         .tab-btn.active { color: #569cd6; border-bottom: 3px solid #569cd6; }
         .tab-content { display: none; height: 100%; flex-direction: column; }
         .tab-content.active { display: flex; }
-        .scan-item { background: #2d2d2d; border-left: 4px solid #4ec9b0; padding: 10px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .scan-item { background: #2d2d2d; border-left: 4px solid #4ec9b0; padding: 12px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: flex-start; transition: all 0.5s ease; }
         .scan-item.error { border-left-color: #f44336; }
         .scan-item.warning { border-left-color: #d7ba7d; }
+        .scan-item.highlighted { border-left-color: #ffeb3b; background-color: #3b3b22; box-shadow: 0 0 12px rgba(255, 235, 59, 0.4); }
         .scan-details { flex: 1; }
-        .scan-id { font-weight: bold; color: #ce9178; font-size: 1.1em; }
-        .err-msg { color: #f44336; font-size: 0.9em; margin: 2px 0;}
-        .warn-msg { color: #d7ba7d; font-size: 0.9em; margin: 2px 0;}
-        .logic-msg { color: #c586c0; font-size: 0.9em; margin: 2px 0; font-weight: bold;}
-        .btn-edit { background: #569cd6; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+        .scan-id { font-weight: bold; color: #ce9178; font-size: 1.1em; margin-bottom: 4px; }
+        .err-msg { color: #f44336; font-size: 0.9em; margin: 4px 0;}
+        .warn-msg { color: #d7ba7d; font-size: 0.9em; margin: 4px 0;}
+        .logic-msg { color: #c586c0; font-size: 0.9em; margin: 4px 0; font-weight: bold;}
+        .fix-badge { background-color: #ff9800; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 6px; }
+        .btn-edit { background: #569cd6; color: white; border: none; padding: 6px 15px; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+        .opt-list { margin-top: 8px; border-top: 1px solid #444; padding-top: 8px; }
+        .builder-row { display: flex; gap: 5px; margin-bottom: 6px; align-items: center; background: #333; padding: 6px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <h1>🎮 劇本節點生成器 V9 (全功能無損同步版)</h1>
+    <h1>🎮 劇本節點生成器 V14 (圖形化組合版)</h1>
 
     <div class="container">
         <div class="panel">
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab('editor')">✏️ 節點編輯器</button>
-                <button class="tab-btn" onclick="switchTab('scanner')">🔍 劇本除錯掃描器</button>
+                <button class="tab-btn" id="tabBtnScanner" onclick="switchTab('scanner')">🔍 劇本除錯掃描區</button>
             </div>
 
             <div id="tab-editor" class="tab-content active scroll-area">
                 <div class="row form-group">
-                    <div class="col"><label>劇本模式</label><select id="scriptMode"><option value="random">🎲 隨機 (DB.templates)</option><option value="fixed">📌 固定 (register)</option></select></div>
+                    <div class="col">
+                        <label>劇本模式</label>
+                        <select id="scriptMode">
+                            <option value="random">🎲 隨機劇本 (DB.templates.push)</option>
+                            <option value="fixed">📌 固定劇本 (register)</option>
+                        </select>
+                    </div>
                 </div>
+
                 <div class="row form-group">
                     <div class="col"><label>節點 ID</label><input type="text" id="nodeId"></div>
-                    <div class="col"><label>節點架構</label><select id="nodeType" onchange="toggleHubMode()"><option value="linear">▶️ 線性推進</option><option value="hub">🔄 箱庭 HUB</option></select></div>
+                    <div class="col">
+                        <label>節點架構</label>
+                        <select id="nodeType" onchange="toggleHubMode()">
+                            <option value="linear">▶️ 線性推進</option>
+                            <option value="hub">🔄 箱庭 HUB (支援返回與短描述)</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="form-group"><label>需求標籤 ReqTags (隨機模式用)</label><input type="text" id="reqTags"></div>
+                <div class="form-group">
+                    <label>需求標籤 ReqTags <span class="hint-text">(限隨機劇本)</span></label>
+                    <input type="text" id="reqTags" placeholder="例如: has_key, event_triggered">
+                </div>
 
                 <div class="form-group">
-                    <label>📖 主線對話 (dialogue)</label>
-                    <textarea id="mainZh" class="lang-input" placeholder="中文劇情..." oninput="autoResize(this)"></textarea>
+                    <label>📖 主線對話 (dialogue) <span class="hint-text">💡 建議每行不超過 45 字</span></label>
+                    <textarea id="mainZh" class="lang-input" placeholder="中文劇情 (換行代表不同對話框)..." oninput="autoResize(this)"></textarea>
                     <textarea id="mainJp" class="lang-input" placeholder="日文劇情 (選填)" oninput="autoResize(this)"></textarea>
                     <textarea id="mainKr" class="lang-input" placeholder="韓文劇情 (選填)" oninput="autoResize(this)"></textarea>
                 </div>
 
                 <div id="hubFields" class="hub-only">
-                    <label>🏷️ 箱庭短描述 (briefDialogue)</label>
-                    <textarea id="briefZh" class="lang-input" placeholder="中文短描述" oninput="autoResize(this)"></textarea>
+                    <label>🏷️ 箱庭短描述 (briefDialogue) <span class="hint-text">💡 玩家第二次返回此 HUB 時顯示的精簡文字</span></label>
+                    <textarea id="briefZh" class="lang-input" placeholder="中文短描述..." oninput="autoResize(this)"></textarea>
                     <textarea id="briefJp" class="lang-input" placeholder="日文短描述" oninput="autoResize(this)"></textarea>
                     <textarea id="briefKr" class="lang-input" placeholder="韓文短描述" oninput="autoResize(this)"></textarea>
                 </div>
+				<div class="form-group" style="background-color: #2b2b2b; padding: 15px; border-radius: 4px; border-left: 4px solid #d7ba7d; margin-top: 15px;">
+                    <label style="color:#d7ba7d; margin-bottom: 10px;">🎁 主節點進入/首次進入獎勵 (onEnter / onFirstEnter)</label>
+                    
+                    <div class="row" style="margin-bottom: 10px;">
+                        <div class="col">
+                            <label style="font-size: 0.85em; color: #aaa;">給予標籤 (Tags)</label>
+                            <input type="text" id="mainTags" placeholder="逗號分隔 (例: has_key, meet_npc)">
+                        </div>
+                    </div>
 
+                    <label style="font-size: 0.85em; color: #aaa;">狀態增減 (VarOps) <span class="hint-text">可使用組合器，或在下方直接手寫</span></label>
+                    <div class="builder-row">
+                        <select class="varop-key" style="flex: 2;">
+                            <optgroup class="dynamic-chars" label="當前出場角色 (自動抓取)"></optgroup>
+                            
+                            <optgroup label="❤️ 情感軸 (aff_)">
+                                <option value="aff_main">主要對象 (aff_main)</option>
+                                <option value="aff_partner">同伴/搭檔 (aff_partner)</option>
+                                <option value="aff_guide_npc">引導/NPC (aff_guide_npc)</option>
+                                <option value="aff_threat">明確威脅 (aff_threat)</option>
+                            </optgroup>
+                            <optgroup label="🤝 信任軸 (trust_)">
+                                <option value="trust_main">主要對象 (trust_main)</option>
+                                <option value="trust_partner">同伴/搭檔 (trust_partner)</option>
+                                <option value="trust_guide_npc">引導/NPC (trust_guide_npc)</option>
+                                <option value="trust_threat">明確威脅 (trust_threat)</option>
+                            </optgroup>
+                            <optgroup label="👁️ 警戒軸 (susp_)">
+                                <option value="susp_main">主要對象 (susp_main)</option>
+                                <option value="susp_partner">同伴/搭檔 (susp_partner)</option>
+                                <option value="susp_guide_npc">引導/NPC (susp_guide_npc)</option>
+                                <option value="susp_threat">明確威脅 (susp_threat)</option>
+                            </optgroup>
+                            <optgroup label="📦 基礎資源">
+                                <option value="hp">生命值 (hp)</option>
+                                <option value="energy">精力 (energy)</option>
+                                <option value="gold">金幣 (gold)</option>
+                                <option value="exp">經驗值 (exp)</option>
+                                <option value="skill_points">技能點 (skill_points)</option>
+                            </optgroup>
+                            <optgroup label="⏳ 時間與進度">
+                                <option value="time_left">剩餘時間 (time_left)</option>
+                                <option value="progress">進度 (progress)</option>
+                            </optgroup>
+                            <optgroup label="⚠️ 精神與局勢威脅">
+                                <option value="sanity">理智值 (sanity)</option>
+                                <option value="stress">心理壓力 (stress)</option>
+                                <option value="tension">局勢緊張度 (tension)</option>
+                                <option value="curse_val">作祟值 (curse_val)</option>
+                                <option value="alert_level">警報等級 (alert_level)</option>
+                            </optgroup>
+                            <optgroup label="🏅 社會與解謎">
+                                <option value="prestige">聲望值 (prestige)</option>
+                                <option value="credibility">公信度 (credibility)</option>
+                                <option value="rank_points">排名分 (rank_points)</option>
+                                <option value="evidence_count">線索數 (evidence_count)</option>
+                                <option value="puzzle_count">謎題數 (puzzle_count)</option>
+                                <option value="knowledge">知識 (knowledge)</option>
+                            </optgroup>
+                        </select>
+                        <select class="varop-op" style="flex: 0.5;"><option value="+">+</option><option value="-">-</option><option value="=">=</option></select>
+                        <input type="number" class="varop-val" placeholder="數值" style="flex: 1;">
+                        <button type="button" class="btn" style="background:#569cd6; color:white; padding:8px 12px;" onclick="appendVarOp(this)">+ 加入</button>
+                    </div>
+                    <input type="text" id="mainVarOps" placeholder="最終結果 (例: hp -10, gold +50)">
+                </div>
                 <hr style="border-color: #555; margin: 20px 0;">
                 <label style="font-size: 18px; color: #4ec9b0;">🎯 玩家選項 (Options)</label>
                 
                 <div id="optionsContainer"></div>
-<div class="row">
-    <div class="col">
-        <button class="btn btn-add" onclick="addOption()">+ 手動新增選項</button>
-    </div>
-    <div class="col">
-        <button class="btn" style="background-color: #c586c0; color: white; width: 100%;" onclick="pasteOption()">📥 貼上選項</button>
-    </div>
-</div>
-                <button class="btn btn-add" onclick="addOption()">+ 手動新增選項</button>
                 
-                <button class="btn btn-generate" onclick="generateJSON()">⚙️ 生成腳本代碼 (並同步至掃描區)</button>
-                <button class="btn btn-stash" onclick="addToStash()">📥 加入右側暫存區</button>
+                <div class="row" style="margin-bottom: 20px;">
+                    <div class="col"><button class="btn btn-add" style="margin-bottom: 0;" onclick="addOption()">+ 手動新增選項</button></div>
+                    <div class="col"><button class="btn" style="background-color: #c586c0; color: white; width: 100%;" onclick="pasteOption()">📥 貼上選項 (從掃描區複製)</button></div>
+                </div>
+                
+                <button class="btn btn-generate" onclick="generateAndSync()">⚙️ 生成腳本代碼 (並自動跳轉回掃描區)</button>
+                <button class="btn btn-stash" onclick="addToStash()">📥 加入右側備份暫存區</button>
             </div>
 
             <div id="tab-scanner" class="tab-content scroll-area">
-                <p style="color:#aaa; font-size:14px; margin-top:0;">將 JS 代碼貼在下方。系統將會掃描格式錯誤、邏輯死鎖，並<strong style="color:#ff9800;">自動幫你把 rewards 與 onEnter 歸位修復</strong>。</p>
-                <textarea id="scanInput" placeholder="貼上你的 JS 程式碼..." style="min-height: 200px; font-family: monospace;"></textarea>
+                <p style="color:#aaa; font-size:14px; margin-top:0;">將 JS 代碼貼在下方。系統會深度檢查邏輯死鎖，並<strong style="color:#ff9800;">自動幫你修復層級放錯的 rewards 與 onEnter</strong>。</p>
+                <textarea id="scanInput" placeholder="貼上你的 register({...}); 或是 DB.templates.push({...});" style="min-height: 250px; font-family: monospace;" oninput="autoResize(this)"></textarea>
                 <button class="btn btn-parse" onclick="runLinter()">🔎 執行深度邏輯掃描與自動修復</button>
                 <hr style="border-color: #555;">
-                <div id="scanResults"></div>
+                <div id="scanResults">
+                    <p style="color:#777; text-align:center; padding: 20px;">掃描結果將顯示於此</p>
+                </div>
             </div>
         </div>
 
         <div class="panel">
             <div class="scroll-area" style="display:flex; flex-direction:column; height:100%;">
                 <label>📝 單筆生成預覽</label>
-                <pre id="outputCode" style="flex: 0.4; min-height:150px;">// 單一節點代碼...</pre>
+                <pre id="outputCode" style="flex: 0.4; min-height:200px;">// 這裡會顯示剛剛生成的單一節點代碼...</pre>
                 
-                <label style="color:#d7ba7d; margin-top:10px;">📦 劇本暫存區 (可匯出)</label>
-                <pre id="stashCode" style="flex: 1; background-color: #0d1117;">// 暫存的劇本會累積在這裡...</pre>
+                <label style="color:#d7ba7d; margin-top:10px;">📦 劇本暫存區 (可匯出備份)</label>
+                <pre id="stashCode" style="flex: 1; background-color: #0d1117;">// 點擊「加入右側備份暫存區」會累積在這裡...</pre>
             </div>
             <div class="row">
                 <div class="col"><button class="btn btn-clear" onclick="clearStash()">🗑️ 清空暫存</button></div>
@@ -133,7 +217,6 @@
 
         document.getElementById('stashCode').textContent = stashContent ? stashContent : "// 暫存的劇本會累積在這裡...";
 
-        // === UI 基礎操作 ===
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -144,7 +227,14 @@
         function autoResize(el) {
             if(!el) return;
             el.style.height = 'auto';
-            el.style.height = (el.scrollHeight) + 'px';
+            if(el.scrollHeight > 42) { 
+                el.style.height = (el.scrollHeight) + 'px';
+            }
+        }
+        function triggerAllResize() {
+            setTimeout(() => {
+                document.querySelectorAll('textarea').forEach(el => autoResize(el));
+            }, 10);
         }
 
         function toggleHubMode() {
@@ -152,19 +242,39 @@
             document.getElementById('hubFields').style.display = isHub ? 'block' : 'none';
         }
 
-        // 🌟 選項搬運功能
-        function pasteOption() {
-            if (!clipboardOption) return alert("剪貼簿為空！請先從掃描區點擊『📋 複製選項』");
-            addOption(clipboardOption);
-            alert("✅ 選項已貼入底部！");
-        }
-
         function copyOptionToClipboard(optKey) {
             clipboardOption = JSON.parse(JSON.stringify(window[optKey]));
-            alert(`已複製選項：「${clipboardOption.label?.zh || clipboardOption.label}」\n可至編輯器點擊『📥 貼上選項』。`);
+            alert(`✅ 已複製選項：「${clipboardOption.label?.zh || clipboardOption.label}」\n請切換至【節點編輯器】點擊『📥 貼上選項』。`);
         }
 
-        // 🌟 完整欄位還原：多語系 + VarOps + 獎勵
+        function pasteOption() {
+            if (!clipboardOption) return alert("❌ 剪貼簿為空！請先在掃描區點擊『📋 複製選項』");
+            addOption(clipboardOption);
+        }
+
+        // 🌟 新增：將 Builder 選好的變數加入到文字框
+        function appendVarOp(btn) {
+            const parent = btn.closest('.form-group');
+            const key = parent.querySelector('.varop-key').value;
+            const op = parent.querySelector('.varop-op').value;
+            const val = parent.querySelector('.varop-val').value;
+            
+            if (!val && key !== 'custom') return alert("請輸入數值！");
+            
+            const inputStr = `${key} ${op}${val}`;
+            
+            // 🌟 核心修改：同時支援選項區 (.opt-varops) 與主節點區 (#mainVarOps)
+            const mainInput = parent.querySelector('.opt-varops') || parent.querySelector('#mainVarOps');
+            
+            if (mainInput.value.trim() === '') {
+                mainInput.value = inputStr;
+            } else {
+                mainInput.value += `, ${inputStr}`;
+            }
+            
+            parent.querySelector('.varop-val').value = ''; // 清空數值方便下次輸入
+        }
+
         function addOption(initialData = null) {
             optionCount++;
             const div = document.createElement('div');
@@ -173,180 +283,619 @@
             div.innerHTML = `
                 <button class="btn btn-remove" onclick="this.parentElement.remove()">X</button>
                 <h3>選項 ${optionCount}</h3>
-                <div class="form-group"><label>按鈕文字 (zh/jp/kr)</label>
+                <div class="form-group"><label>按鈕文字</label>
                     <input type="text" class="opt-label-zh lang-input" placeholder="中文">
                     <input type="text" class="opt-label-jp lang-input" placeholder="日文">
                     <input type="text" class="opt-label-kr lang-input" placeholder="韓文">
                 </div>
                 <div class="row form-group">
-                    <div class="col"><label>需求標籤 (condition.tags)</label><input type="text" class="opt-cond-tags"></div>
-                    <div class="col"><label>排除標籤 (noTag)</label><input type="text" class="opt-cond-notags"></div>
+                    <div class="col"><label>需求標籤 (tags)</label><input type="text" class="opt-cond-tags" placeholder="逗號分隔"></div>
+                    <div class="col"><label>排除標籤 (noTag)</label><input type="text" class="opt-cond-notags" placeholder="不可持有"></div>
                 </div>
                 <div class="row form-group">
                     <div class="col"><label>檢定屬性</label><select class="opt-stat"><option value="">無</option><option value="STR">STR</option><option value="INT">INT</option><option value="AGI">AGI</option><option value="LCK">LCK</option></select></div>
                     <div class="col"><label>難度</label><input type="number" class="opt-val"></div>
                 </div>
+                
+                <div class="form-group">
+                    <label>狀態增減 (VarOps) <span class="hint-text">可使用組合器快速加入，或在下方直接手寫</span></label>
+                    <div class="builder-row">
+                        <select class="varop-key" style="flex: 2;">
+                            <optgroup class="dynamic-chars" label="當前出場角色 (自動抓取)"></optgroup>
+                            
+                            <optgroup label="❤️ 情感軸 (aff_)">
+                                <option value="aff_main">主要對象 (aff_main)</option>
+                                <option value="aff_partner">同伴/搭檔 (aff_partner)</option>
+                                <option value="aff_guide_npc">引導/NPC (aff_guide_npc)</option>
+                                <option value="aff_threat">明確威脅 (aff_threat)</option>
+                            </optgroup>
+
+                            <optgroup label="🤝 信任軸 (trust_)">
+                                <option value="trust_main">主要對象 (trust_main)</option>
+                                <option value="trust_partner">同伴/搭檔 (trust_partner)</option>
+                                <option value="trust_guide_npc">引導/NPC (trust_guide_npc)</option>
+                                <option value="trust_threat">明確威脅 (trust_threat)</option>
+                            </optgroup>
+
+                            <optgroup label="👁️ 警戒軸 (susp_)">
+                                <option value="susp_main">主要對象 (susp_main)</option>
+                                <option value="susp_partner">同伴/搭檔 (susp_partner)</option>
+                                <option value="susp_guide_npc">引導/NPC (susp_guide_npc)</option>
+                                <option value="susp_threat">明確威脅 (susp_threat)</option>
+                            </optgroup>
+
+                            <optgroup label="📦 基礎資源">
+                                <option value="hp">生命值 (hp)</option>
+                                <option value="energy">精力 (energy)</option>
+                                <option value="gold">金幣 (gold)</option>
+                                <option value="exp">經驗值 (exp)</option>
+                                <option value="skill_points">技能點 (skill_points)</option>
+                            </optgroup>
+
+                            <optgroup label="⏳ 時間與進度">
+                                <option value="time_left">剩餘時間 (time_left)</option>
+                                <option value="progress">破解進度 (progress)</option>
+                            </optgroup>
+
+                            <optgroup label="⚠️ 精神與局勢威脅">
+                                <option value="sanity">理智值 (sanity)</option>
+                                <option value="stress">心理壓力 (stress)</option>
+                                <option value="tension">局勢緊張度 (tension)</option>
+                                <option value="curse_val">作祟值 (curse_val)</option>
+                                <option value="alert_level">警報等級 (alert_level)</option>
+                            </optgroup>
+
+                            <optgroup label="🏅 社會與解謎">
+                                <option value="prestige">聲望值 (prestige)</option>
+                                <option value="credibility">公信度 (credibility)</option>
+                                <option value="rank_points">排名分 (rank_points)</option>
+                                <option value="evidence_count">線索數 (evidence_count)</option>
+                                <option value="puzzle_count">謎題數 (puzzle_count)</option>
+                                <option value="knowledge">知識 (knowledge)</option>
+                            </optgroup>
+                        </select>
+                        <select class="varop-op" style="flex: 0.5;"><option value="+">+</option><option value="-">-</option><option value="=">=</option></select>
+                        <input type="number" class="varop-val" placeholder="數值" style="flex: 1;">
+                        <button type="button" class="btn" style="background:#569cd6; color:white; padding:8px 12px;" onclick="appendVarOp(this)">+ 加入</button>
+                    </div>
+                    <input type="text" class="opt-varops" placeholder="最終結果 (例: time_left -1, custom_var +5)">
+                </div>
+
                 <div class="row form-group">
-                    <div class="col"><label>得金幣</label><input type="number" class="opt-gold"></div>
-                    <div class="col"><label>得經驗</label><input type="number" class="opt-exp"></div>
-                    <div class="col"><label>扣精力</label><input type="number" class="opt-energy"></div>
+                    <div class="col"><label>給予標籤 (Tags)</label><input type="text" class="opt-tags" placeholder="逗號分隔"></div>
+                    <div class="col"><label>移除標籤 (removeTags)</label><input type="text" class="opt-rm-tags" placeholder="逗號分隔"></div>
                 </div>
-                <div class="form-group"><label>狀態增減 (VarOps: key op val)</label><input type="text" class="opt-varops"></div>
-                <div class="form-group"><label>給予標籤 (Tags)</label><input type="text" class="opt-tags"></div>
-                <div class="form-group"><label>移除標籤 (removeTags)</label><input type="text" class="opt-rm-tags"></div>
-                <div class="form-group"><label>跳轉 ID (nextSceneId)</label><input type="text" class="opt-next-id"></div>
-                <div class="form-group"><label>🎬 成功演出 (nextScene)</label>
-                    <textarea class="opt-res-zh lang-input" placeholder="中文" oninput="autoResize(this)"></textarea>
-                    <textarea class="opt-res-jp lang-input" placeholder="日文" oninput="autoResize(this)"></textarea>
-                    <textarea class="opt-res-kr lang-input" placeholder="韓文" oninput="autoResize(this)"></textarea>
+                
+                <hr style="border-color: #444; margin: 15px 0;">
+                
+                <div class="form-group"><label>跳轉 ID (nextSceneId) <span class="hint-text">若填寫此項，下方演出將被忽略</span></label><input type="text" class="opt-next-id" placeholder="要跳轉的節點 ID..."></div>
+                <div class="form-group"><label>🎬 成功 / 內嵌演出 (nextScene.dialogue)</label>
+                    <textarea class="opt-res-zh lang-input" placeholder="中文演出..." oninput="autoResize(this)"></textarea>
+                    <textarea class="opt-res-jp lang-input" placeholder="日文演出..." oninput="autoResize(this)"></textarea>
+                    <textarea class="opt-res-kr lang-input" placeholder="韓文演出..." oninput="autoResize(this)"></textarea>
                 </div>
-                <div class="form-group"><label>❌ 失敗演出 (onFail)</label><textarea class="opt-fail-zh" oninput="autoResize(this)"></textarea></div>
+                <div class="form-group"><label>❌ 失敗演出 (onFail.dialogue)</label>
+                    <textarea class="opt-fail-zh" placeholder="中文檢定失敗演出..." oninput="autoResize(this)"></textarea>
+                </div>
             `;
             document.getElementById('optionsContainer').appendChild(div);
 
-            if (initialData) fillOptionData(div, initialData);
+            if (initialData) {
+                div.querySelector('.opt-label-zh').value = initialData.label?.zh || initialData.label || '';
+                div.querySelector('.opt-label-jp').value = initialData.label?.jp || '';
+                div.querySelector('.opt-label-kr').value = initialData.label?.kr || '';
+                
+                if(initialData.condition?.tags) div.querySelector('.opt-cond-tags').value = initialData.condition.tags.join(', ');
+                if(initialData.condition?.noTag) div.querySelector('.opt-cond-notags').value = initialData.condition.noTag;
+                
+                if(initialData.check) {
+                    div.querySelector('.opt-stat').value = initialData.check.stat || '';
+                    div.querySelector('.opt-val').value = initialData.check.val || '';
+                }
+                
+                // 🌟 修復：完整讀取所有可能存放獎勵的位置 (包含 Linter 自動修復後的 onEnter)
+                const rewardsObj = initialData.rewards || 
+                                   initialData.onEnter || 
+                                   (initialData.nextScene && (initialData.nextScene.onEnter || initialData.nextScene.rewards)) || 
+                                   {};
+                
+                if(rewardsObj.tags) div.querySelector('.opt-tags').value = rewardsObj.tags.join(', ');
+                if(rewardsObj.removeTags) div.querySelector('.opt-rm-tags').value = rewardsObj.removeTags.join(', ');
+                
+                let legacyVarOps = [];
+                if(rewardsObj.gold) legacyVarOps.push(`gold +${rewardsObj.gold}`);
+                if(rewardsObj.exp) legacyVarOps.push(`exp +${rewardsObj.exp}`);
+                if(rewardsObj.energy) legacyVarOps.push(`energy ${rewardsObj.energy > 0 ? '+'+rewardsObj.energy : rewardsObj.energy}`);
+                if(rewardsObj.varOps) {
+                    legacyVarOps = legacyVarOps.concat(rewardsObj.varOps.map(v => {
+                        let op = (v.op && v.op.toLowerCase() === 'set') ? '=' : v.op;
+                        return `${v.key} ${op}${v.val}`;
+                    }));
+                }
+                if(legacyVarOps.length > 0) div.querySelector('.opt-varops').value = legacyVarOps.join(', ');
+
+                div.querySelector('.opt-next-id').value = initialData.nextSceneId || '';
+                
+                if (initialData.nextScene && initialData.nextScene.dialogue) {
+                    const nsDiag = initialData.nextScene.dialogue;
+                    div.querySelector('.opt-res-zh').value = nsDiag.map(d=>d.text?.zh).filter(Boolean).join('\n');
+                    div.querySelector('.opt-res-jp').value = nsDiag.map(d=>d.text?.jp).filter(Boolean).join('\n');
+                    div.querySelector('.opt-res-kr').value = nsDiag.map(d=>d.text?.kr).filter(Boolean).join('\n');
+                } else if (initialData.nextScene && initialData.nextScene.text) {
+                    div.querySelector('.opt-res-zh').value = initialData.nextScene.text.zh || "";
+                }
+
+                if (initialData.onFail && initialData.onFail.dialogue) {
+                    div.querySelector('.opt-fail-zh').value = initialData.onFail.dialogue.map(d=>d.text?.zh).filter(Boolean).join('\n');
+                }
+            }
+            triggerAllResize();
             return div;
         }
 
-        // ======================================================================
-        // === 核心：V12 智慧修復 Linter (正則解析 + 遞迴掃描 + 智慧補全) ===
-        // ======================================================================
-        function runLinter() {
-            const code = document.getElementById('scanInput').value;
+        function runLinter(highlightId = null) {
+            let code = document.getElementById('scanInput').value;
             if(!code.trim()) return alert("請貼上代碼！");
 
-            let extractedNodes = [];
-            // 策略：先用正則嘗試切分 register 或 DB.templates.push
-            const regex = /(?:register|push)\s*\(\s*([\s\S]*?)\s*\)\s*;/g;
-            let match;
-            while ((match = regex.exec(code)) !== null) {
-                try {
-                    const nodeData = eval("(" + match[1] + ")");
-                    extractedNodes.push({ mode: match[0].includes('push') ? 'random' : 'fixed', data: nodeData });
-                } catch(e) {}
-            }
+            // ==========================================
+            // 🌟 模組一：自動替換舊變數與舊佔位符（字串層）
+            // ==========================================
+            const legacyMap = {
+                'lover': 'main', 'suspect_A': 'main', 'detective': 'partner',
+                'suspect_B': 'guide_npc', 'victim': 'hidden', 'mentor': 'guide_npc',
+                'rival': 'partner', 'trainee': 'main', 'hero': 'main',
+                'survivor': 'main', 'monster': 'threat', 'boss': 'threat',
+                'free_time': 'time_left', 'search_count': 'time_left'
+            };
 
-            if (extractedNodes.length === 0) {
-                try {
-                    let dummyDB = { templates: { push: function(...args) { args.forEach(a => extractedNodes.push({mode:'random', data:a})); } } };
-                    let dummyRegister = function(obj) { extractedNodes.push({mode:'fixed', data:obj}); };
-                    new Function('DB', 'register', code)(dummyDB, dummyRegister);
-                } catch (e) {
-                    document.getElementById('scanResults').innerHTML = `<p style="color:red;">❌ 解析失敗：${e.message}</p>`;
-                    return;
+            let autoFixLogs = [];
+            let originalCode = code;
+
+            const axisPrefixes = ['aff_', 'trust_', 'susp_'];
+            axisPrefixes.forEach(prefix => {
+                for(let oldKey in legacyMap) {
+                    const regex = new RegExp(prefix + oldKey, 'g');
+                    if(regex.test(code)) {
+                        code = code.replace(regex, prefix + legacyMap[oldKey]);
+                        autoFixLogs.push(`變數：<code>${prefix}${oldKey}</code> ➔ <code>${prefix}${legacyMap[oldKey]}</code>`);
+                    }
+                }
+            });
+            for(let oldKey in legacyMap) {
+                const regex = new RegExp(`\\{${oldKey}\\}`, 'g');
+                if(regex.test(code)) {
+                    code = code.replace(regex, `{${legacyMap[oldKey]}}`);
+                    autoFixLogs.push(`對話佔位：<code>{${oldKey}}</code> ➔ <code>{${legacyMap[oldKey]}}</code>`);
                 }
             }
 
-            parsedNodesDB = {}; 
+            // ==========================================
+            // 🌟 模組一點五：剝離所有 // 行註解，保存位置，修復後還原
+            // 策略：把每一行 // 後面的內容替換成佔位符，修復完再還原
+            // ==========================================
+            const commentPlaceholders = [];
+            code = code.replace(/\/\/[^\n]*/g, (match) => {
+                const idx = commentPlaceholders.length;
+                commentPlaceholders.push(match);
+                return `/*COMMENT_${idx}*/`;
+            });
+
+            // ==========================================
+// 🌟 模組二：解析物件、結構修復、寫回 (括號計數升級版)
+// ==========================================
+let extractedNodes = [];
+const keywordRegex = /(register|DB\.templates\.push)\s*\(/g;
+let match;
+
+while ((match = keywordRegex.exec(code)) !== null) {
+    let startIndex = match.index; // 整個區塊的起點
+    let contentStart = keywordRegex.lastIndex; // 左括號 '(' 的下一個字元
+    let openBrackets = 1; // 第一個左括號
+    let currentIndex = contentStart;
+
+    // 尋找匹配的右括號
+    while (currentIndex < code.length && openBrackets > 0) {
+        if (code[currentIndex] === '(') openBrackets++;
+        if (code[currentIndex] === ')') openBrackets--;
+        currentIndex++;
+    }
+
+    // 如果括號成功閉合
+    if (openBrackets === 0) {
+        // 向後尋找是否帶有分號 (將 register(...); 的分號也包進去，方便完整替換)
+        let matchEndIndex = currentIndex;
+        while (matchEndIndex < code.length && /\s/.test(code[matchEndIndex])) {
+            matchEndIndex++;
+        }
+        if (code[matchEndIndex] === ';') {
+            matchEndIndex++;
+        }
+
+        let fullMatch = code.substring(startIndex, matchEndIndex); // 包含 register(...);
+        let innerContent = code.substring(contentStart, currentIndex - 1); // 只抽取出 ... 的部分
+
+        try {
+            // 剝離佔位符以進行 eval 轉換
+            const cleanInner = innerContent.replace(/\/\*COMMENT_\d+\*\//g, '');
+            const nodeData = eval("(" + cleanInner + ")");
+            extractedNodes.push({
+                mode: match[1].includes('push') ? 'random' : 'fixed',
+                data: nodeData,
+                rawMatch: fullMatch,
+                rawInner: innerContent
+            });
+        } catch(e) {
+            console.warn("節點解析失敗，跳過此段:", e);
+            // 你也可以在這裡 push 一個錯誤到 UI 上
+        }
+        
+        // 更新 Regex 的搜尋指標，避免無窮迴圈
+        keywordRegex.lastIndex = matchEndIndex;
+    }
+}
+
+            parsedNodesDB = {};
             let resultsHTML = "";
             let globalProvidedTags = new Set();
-            
-            // 1. 全局發放標籤蒐集 (遞迴)
+
             function scanTags(node) {
                 if(!node) return;
                 const r = node.onEnter || node.rewards || node.onFirstEnter;
                 if(r?.tags) r.tags.forEach(t => globalProvidedTags.add(t));
                 if(node.options) node.options.forEach(o => {
                     if(o.rewards?.tags) o.rewards.tags.forEach(t => globalProvidedTags.add(t));
-                    scanTags(o.nextScene); scanTags(o.failScene);
+                    scanTags(o.nextScene);
+                    scanTags(o.failScene);
                 });
             }
             extractedNodes.forEach(item => scanTags(item.data));
 
-            // 2. 節點檢查與自動修正
+            // 先把所有節點 ID 預先登記，避免 checkBrokenLink 因順序問題誤報斷鏈
+            extractedNodes.forEach(item => {
+                const id = item.data.id || "unnamed";
+                parsedNodesDB[id] = item;
+            });
+
             extractedNodes.forEach(item => {
                 const node = item.data;
                 const id = node.id || "unnamed";
                 const mode = item.mode;
-                parsedNodesDB[id] = item;
 
-                let warnings = [], logicErrors = [];
+                let warnings = [], logicErrors = [], errors = [];
+                let hasAutoFixed = false;
 
-                // 智慧修復：場景獎勵歸位
-                if (node.rewards) { node.onEnter = node.rewards; delete node.rewards; warnings.push("🔧 場景 rewards -> onEnter"); }
+                // --- 結構修復：對物件做修改，然後用序列化版本替換原始區塊 ---
+                let structureChanged = false;
 
-                // 智慧補全：isHub 與 noMap
-                if (id.toLowerCase().includes('hub') && node.isHub === undefined) {
-                    node.isHub = true; warnings.push("💡 自動補上 isHub: true");
+                // 主節點 rewards → onEnter
+                if (node.rewards) {
+                    node.onEnter = JSON.parse(JSON.stringify(node.rewards));
+                    delete node.rewards;
+                    structureChanged = true;
+                    hasAutoFixed = true;
+                    warnings.push("<span class='fix-badge'>已自動修復</span> 主節點誤用 rewards，已自動替換為 onEnter。");
+                    autoFixLogs.push(`結構修復：主節點 <code>${id}</code> 的 <code>rewards</code> ➔ <code>onEnter</code>`);
                 }
+
+                // isHub 補全
+                if (id.toLowerCase().includes('hub') && node.isHub === undefined) {
+                    node.isHub = true;
+                    structureChanged = true;
+                    hasAutoFixed = true;
+                    warnings.push("<span class='fix-badge'>智慧補全</span> 自動補上 isHub: true。");
+                    autoFixLogs.push(`屬性補全：自動為 <code>${id}</code> 補上 <code>"isHub": true</code>`);
+                }
+                // noMap 補全
                 if (node.isHub && node.noMap === undefined) {
                     node.noMap = (mode === 'fixed');
-                    warnings.push(`💡 noMap 智慧設為 ${node.noMap}`);
+                    structureChanged = true;
+                    hasAutoFixed = true;
+                    warnings.push(`<span class='fix-badge'>智慧補全</span> 自動補上 noMap: ${node.noMap}。`);
+                    autoFixLogs.push(`屬性補全：自動為 <code>${id}</code> 補上 <code>"noMap": ${node.noMap}</code>`);
                 }
 
-                // 選項修復與死鎖檢查
+                // ==========================================
+                // 🌟 變數字典與驗證器 (取代原有的 checkLegacyVars)
+                // ==========================================
+                const validBaseVars = new Set([
+                    // 1. 基礎資源
+                    'hp', 'energy', 'gold', 'exp', 'skill_points',
+                    // 2. 時間與進度
+                    'time_left', 'progress',
+                    // 3. 精神與局勢威脅
+                    'sanity', 'stress', 'tension', 'curse_val', 'alert_level',
+                    // 4. 社會與解謎成就
+                    'prestige', 'credibility', 'evidence_count', 'puzzle_count', 'knowledge', 'rank_points'
+                ]);
+                
+                // 動態角色軸前綴 (允許任何接續這些前綴的變數，例如 aff_main)
+                const validPrefixes = ['aff_', 'trust_', 'susp_'];
+
+                const legacyKeys = {
+                    'lover': 'main', 'suspect_A': 'main', 'detective': 'partner',
+                    'suspect_B': 'guide_npc', 'victim': 'hidden', 'mentor': 'guide_npc', 'rival': 'partner',
+                    'free_time': 'time_left', 'search_count': 'time_left'
+                };
+
+                const checkVarsValidation = (varOps, locationMsg) => {
+                    if (!varOps) return;
+                    varOps.forEach(v => {
+                        if (!v || !v.key) return; // 防呆機制
+                        let isLegacy = false;
+                        
+                        // 1. 檢查是否使用了舊版變數
+                        for (let legacy in legacyKeys) {
+                            if (v.key.includes(legacy)) {
+                                warnings.push(`<span class='fix-badge'>語法建議</span> [${locationMsg}] 檢測到舊變數 '${v.key}'，請更新為 '${v.key.replace(legacy, legacyKeys[legacy])}'。`);
+                                isLegacy = true;
+                            }
+                        }
+                        
+                        // 2. 字典比對 (如果不是舊變數，則檢查是否在合法名單內)
+                        if (!isLegacy) {
+                            // 🌟 防彈機制：自動去空白、強制轉小寫
+                            const safeKey = v.key.trim().toLowerCase(); 
+                            
+                            const isBaseValid = validBaseVars.has(safeKey);
+                            const isPrefixValid = validPrefixes.some(prefix => safeKey.startsWith(prefix));
+                            
+                            if (!isBaseValid && !isPrefixValid) {
+                                // 顯示粉紅/紅色警告徽章，提示載入編輯
+                                warnings.push(`<span class='fix-badge' style='background-color:#e91e63;'>未知變數</span> [${locationMsg}] 發現未定義的變數 <code>${v.key}</code>，若是拼寫錯誤請點擊「✏️ 載入編輯」修正。`);
+                            }
+                        }
+                    });
+                };
+
+                // 將驗證器應用到節點層級
+                checkVarsValidation(node.onEnter?.varOps || node.rewards?.varOps || node.onFirstEnter?.varOps, "節點進入獎勵");
+
                 let optHTML = "";
                 if (node.options) {
                     node.options.forEach((opt, idx) => {
                         const optName = opt.label?.zh || opt.label || "未命名";
-                        if (opt.onEnter) { opt.rewards = opt.onEnter; delete opt.onEnter; warnings.push(`🔧 選項 [${optName}] onEnter -> rewards`); }
-                        
-                        // 檢查死鎖
-                        const req = (opt.condition?.tags || []).concat(opt.condition?.tag ? [opt.condition.tag] : []);
-                        req.forEach(t => { if(!globalProvidedTags.has(t)) logicErrors.push(`💀 缺少標籤 '${t}'`); });
 
-                        // 生成複製按鈕
+                        const checkBrokenLink = (targetId, location) => {
+                            if (!targetId || targetId === 'GEN_MODULAR') return;
+                            if (!parsedNodesDB[targetId] && !(window._SCENE_POOL && window._SCENE_POOL[targetId])) {
+                                errors.push(`💀 致命的斷鏈錯誤: [${location}] 找不到目標場景 ID <code>${targetId}</code>！`);
+                            }
+                        };
+                        checkBrokenLink(opt.nextSceneId, `選項: ${optName} 的 nextSceneId`);
+                        checkBrokenLink(opt.failSceneId, `選項: ${optName} 的 failSceneId`);
+
+                        // 選項層 onEnter → rewards
+                        if (opt.onEnter) {
+                            opt.rewards = JSON.parse(JSON.stringify(opt.onEnter));
+                            delete opt.onEnter;
+                            structureChanged = true;
+                            hasAutoFixed = true;
+                            warnings.push(`<span class='fix-badge'>已自動修復</span> 選項 [${optName}] 誤用 onEnter，已自動替換為 rewards。`);
+                            autoFixLogs.push(`結構修復：選項 [${optName}] 的 <code>onEnter</code> ➔ <code>rewards</code>`);
+                        }
+
+                        // 子場景 rewards → onEnter
+                        ['nextScene', 'failScene'].forEach(sceneKey => {
+                            if (opt[sceneKey] && opt[sceneKey].rewards) {
+                                opt[sceneKey].onEnter = JSON.parse(JSON.stringify(opt[sceneKey].rewards));
+                                delete opt[sceneKey].rewards;
+                                structureChanged = true;
+                                hasAutoFixed = true;
+                                warnings.push(`<span class='fix-badge'>已自動修復</span> 子場景 [${sceneKey}] 誤用 rewards，已自動替換為 onEnter。`);
+                                autoFixLogs.push(`結構修復：選項 [${optName}] 的 <code>${sceneKey}.rewards</code> ➔ <code>${sceneKey}.onEnter</code>`);
+                            }
+                        });
+
+                        // 應用新版驗證器
+                        checkVarsValidation(opt.rewards?.varOps, `選項 [${optName}]`);
+                        if (opt.nextScene) checkVarsValidation(opt.nextScene.onEnter?.varOps || opt.nextScene.rewards?.varOps, `選項 [${optName}] 成功場景`);
+                        if (opt.failScene) checkVarsValidation(opt.failScene.onEnter?.varOps || opt.failScene.rewards?.varOps, `選項 [${optName}] 失敗場景`);
+
+                        const req = (opt.condition?.tags || []).concat(opt.condition?.tag ? [opt.condition.tag] : []);
+                        req.forEach(t => {
+                            if(!globalProvidedTags.has(t)) logicErrors.push(`💀 邏輯死鎖: 缺少標籤 '${t}'`);
+                        });
+
                         const optId = `copy_${id.replace(/\W/g,'_')}_${idx}`;
                         window[optId] = opt;
-                        optHTML += `<div style="margin-top:4px;"><span style="font-size:0.75rem; color:#aaa;">▪️ ${optName}</span> <button class="btn-edit" style="font-size:0.65rem; padding:1px 4px; background:#4ec9b0;" onclick="copyOptionToClipboard('${optId}')">📋 複製</button></div>`;
+                        optHTML += `<div class="opt-list"><span style="font-size:0.85rem; color:#d4d4d4;">▪️ ${optName}</span> <button class="btn-edit" style="font-size:0.65rem; padding:3px 6px; background:#4ec9b0;" onclick="copyOptionToClipboard('${optId}')">📋 複製</button></div>`;
                     });
+                } else if (!node.noDefaultExit && !id.includes('sub_')) {
+                    warnings.push("⚠️ 警告：此節點沒有任何選項，玩家可能卡死。");
                 }
 
-                let statusClass = logicErrors.length > 0 ? 'error' : (warnings.length > 0 ? 'warning' : '');
+                // 🌟 結構有變更 → 用序列化後的新版本替換掉這個節點的整段原始字串
+                if (structureChanged && item.rawMatch) {
+                    const jsonStr = JSON.stringify(node, null, 4);
+                    const newBlock = (mode === 'random' ? `DB.templates.push(\n` : `register(\n`) +
+                                     `${jsonStr.replace(/^/gm, '        ')}\n    );`;
+                    // 用原始 rawMatch（含佔位符）做精確字串替換
+                    code = code.replace(item.rawMatch, newBlock);
+                }
+
+                let statusClass = '';
+                if (id === highlightId) statusClass = 'highlighted';
+                else if (logicErrors.length > 0 || errors.length > 0) statusClass = 'error';
+                else if (hasAutoFixed) statusClass = 'highlighted';
+                else if (warnings.length > 0) statusClass = 'warning';
+
+                let logicHtml = logicErrors.map(e => `<p class="logic-msg">${e}</p>`).join('');
+                let errHtml = errors.map(e => `<p class="err-msg">${e}</p>`).join('');
+                let warnHtml = warnings.map(w => `<p class="warn-msg">${w}</p>`).join('');
+
                 resultsHTML += `
-                    <div class="scan-item ${statusClass}">
-                        <div class="scan-details"><div class="scan-id">${id}</div>${logicErrors.concat(warnings).map(m=>`<p style="font-size:0.8rem;margin:0;">${m}</p>`).join('')}${optHTML}</div>
-                        <button class="btn-edit" onclick="loadNodeData('${id}')">✏️ 編輯</button>
+                    <div class="scan-item ${statusClass}" id="scan-node-${id}">
+                        <div class="scan-details">
+                            <div class="scan-id">${id} <span style="font-size:0.75em;color:#888;">(${mode})</span></div>
+                            ${logicHtml}
+                            ${errHtml}
+                            ${warnHtml}
+                            ${optHTML}
+                        </div>
+                        <div><button class="btn-edit" onclick="loadNodeData('${id}')">✏️ 載入編輯</button></div>
                     </div>`;
             });
 
-            document.getElementById('scanResults').innerHTML = resultsHTML || "找不到節點";
-            syncParsedDBToScanner(); 
-        }
+            // ==========================================
+            // 🌟 模組三：還原佔位符，寫回文字框
+            // ==========================================
+            code = code.replace(/\/\*COMMENT_(\d+)\*\//g, (_, i) => commentPlaceholders[parseInt(i)]);
 
-        // === 同步與生成邏輯 ===
+            autoFixLogs = [...new Set(autoFixLogs)];
+            if (code !== originalCode) {
+                const ta = document.getElementById('scanInput');
+                ta.value = code;
+                ta.style.backgroundColor = '#4e4e2a';
+                ta.style.transition = 'background-color 0.5s';
+                setTimeout(() => ta.style.backgroundColor = '#3c3c3c', 800);
+            }
+
+            let autoFixPanel = "";
+            if (autoFixLogs.length > 0) {
+                let logsHtml = autoFixLogs.map(log => `<li>${log}</li>`).join('');
+                autoFixPanel = `
+                <div style="background: #2b3a42; border-left: 4px solid #4ec9b0; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                    <h4 style="margin-top:0; color: #4ec9b0;">✨ 已為您自動升級舊版劇本參數：</h4>
+                    <ul style="color: #d4d4d4; font-size: 0.9em; margin-bottom: 0;">${logsHtml}</ul>
+                    <p style="font-size: 0.8em; color: #888; margin-top: 10px; margin-bottom: 0;">
+                        (已自動更新上方代碼框，您可以直接點擊下方節點進行編輯檢查)
+                    </p>
+                </div>`;
+            }
+
+            document.getElementById('scanResults').innerHTML = autoFixPanel + (resultsHTML || "<p>找不到節點</p>");
+
+            if (highlightId) {
+                setTimeout(() => {
+                    const el = document.getElementById(`scan-node-${highlightId}`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            }
+        } // runLinter 函式結束
+		
         function syncParsedDBToScanner() {
-            let fullCode = "";
-            for (let id in parsedNodesDB) {
-                const item = parsedNodesDB[id];
-                const jsonStr = JSON.stringify(item.data, null, 4);
-                fullCode += (item.mode === 'random' ? `    DB.templates.push(\n` : `    register(\n`) + 
-                            `${jsonStr.replace(/^/gm, '        ')}\n    );\n\n`;
+            // 🌟 只替換當前正在編輯的節點，保留其他文字與註解
+            const nodeId = currentEditingNodeId;
+            if (!nodeId || !parsedNodesDB[nodeId]) {
+                // 沒有正在編輯的節點時才整個重寫（初次使用）
+                let fullCode = "";
+                for (let id in parsedNodesDB) {
+                    const item = parsedNodesDB[id];
+                    const jsonStr = JSON.stringify(item.data, null, 4);
+                    fullCode += (item.mode === 'random' ? `    DB.templates.push(\n` : `    register(\n`) + 
+                                `${jsonStr.replace(/^/gm, '        ')}\n    );\n\n`;
+                }
+                document.getElementById('scanInput').value = fullCode.trim();
+                triggerAllResize();
+                return;
             }
-            document.getElementById('scanInput').value = fullCode.trim();
+
+            const item = parsedNodesDB[nodeId];
+            const jsonStr = JSON.stringify(item.data, null, 4);
+            const newBlock = (item.mode === 'random' ? `    DB.templates.push(\n` : `    register(\n`) + 
+                             `${jsonStr.replace(/^/gm, '        ')}\n    );`;
+
+            const ta = document.getElementById('scanInput');
+            const currentText = ta.value;
+
+            // 嘗試在現有文字中找到這個節點的代碼區塊並替換
+            // 用 "id": "nodeId" 當錨點，往前找 register( 或 DB.templates.push(，往後找對應的 );
+            const anchorPattern = new RegExp(
+                `((?:DB\\.templates\\.push|register)\\s*\\(\\s*\\n[\\s\\S]*?"id"\\s*:\\s*"${nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[\\s\\S]*?\\n\\s*\\);)`,
+                'g'
+            );
+
+            if (anchorPattern.test(currentText)) {
+                ta.value = currentText.replace(anchorPattern, newBlock);
+            } else {
+                // 節點不在文字框中，附加到末尾（保留原有文字）
+                const trimmed = currentText.trim();
+                ta.value = trimmed ? trimmed + "\n\n" + newBlock : newBlock;
+            }
+
+            triggerAllResize();
         }
 
-        function fillOptionData(block, opt) {
-            const getVal = (o, path) => path.split('.').reduce((acc, part) => acc && acc[part], o);
-            block.querySelector('.opt-label-zh').value = opt.label?.zh || opt.label || '';
-            block.querySelector('.opt-label-jp').value = opt.label?.jp || '';
-            block.querySelector('.opt-label-kr').value = opt.label?.kr || '';
-            if(opt.condition?.tags) block.querySelector('.opt-cond-tags').value = opt.condition.tags.join(',');
-            if(opt.condition?.noTag) block.querySelector('.opt-cond-notags').value = opt.condition.noTag;
-            if(opt.check) {
-                block.querySelector('.opt-stat').value = opt.check.stat;
-                block.querySelector('.opt-val').value = opt.check.val;
+        function loadNodeData(id) {
+            const item = parsedNodesDB[id]; 
+            if(!item) return;
+            
+            currentEditingNodeId = id; 
+            const node = item.data;
+            
+            document.getElementById('optionsContainer').innerHTML = '';
+            document.getElementById('nodeId').value = node.id || '';
+            document.getElementById('scriptMode').value = item.mode;
+            document.getElementById('reqTags').value = (node.reqTags || []).join(', ');
+            document.getElementById('nodeType').value = node.isHub ? 'hub' : 'linear';
+            toggleHubMode();
+
+            const dialogToStr = (arr, lang) => (arr||[]).map(d => d.text?.[lang] || '').filter(Boolean).join('\n');
+            
+            document.getElementById('mainZh').value = dialogToStr(node.dialogue, 'zh') || node.text?.zh || "";
+            document.getElementById('mainJp').value = dialogToStr(node.dialogue, 'jp') || node.text?.jp || "";
+            document.getElementById('mainKr').value = dialogToStr(node.dialogue, 'kr') || node.text?.kr || "";
+
+            if(node.isHub) {
+                document.getElementById('briefZh').value = dialogToStr(node.briefDialogue, 'zh') || node.briefText?.zh || "";
+                document.getElementById('briefJp').value = dialogToStr(node.briefDialogue, 'jp') || node.briefText?.jp || "";
+                document.getElementById('briefKr').value = dialogToStr(node.briefDialogue, 'kr') || node.briefText?.kr || "";
             }
-            if(opt.rewards) {
-                block.querySelector('.opt-gold').value = opt.rewards.gold || '';
-                block.querySelector('.opt-exp').value = opt.rewards.exp || '';
-                block.querySelector('.opt-energy').value = opt.rewards.energy || '';
-                block.querySelector('.opt-tags').value = (opt.rewards.tags || []).join(',');
-                block.querySelector('.opt-rm-tags').value = (opt.rewards.removeTags || []).join(',');
-                if(opt.rewards.varOps) block.querySelector('.opt-varops').value = opt.rewards.varOps.map(v=>`${v.key} ${v.op}${v.val}`).join(',');
+			const mOnEnter = node.onEnter || node.rewards || node.onFirstEnter || {};
+            document.getElementById('mainTags').value = (mOnEnter.tags || []).join(', ');
+            
+            let mVarOpsStr = [];
+            if(mOnEnter.varOps) {
+                mVarOpsStr = mOnEnter.varOps.map(v => {
+                    let op = (v.op && v.op.toLowerCase() === 'set') ? '=' : v.op;
+                    return `${v.key} ${op}${v.val}`;
+                });
             }
-            block.querySelector('.opt-next-id').value = opt.nextSceneId || '';
-            const ns = opt.nextScene;
-            if(ns) {
-                const nsD = ns.dialogue || [];
-                block.querySelector('.opt-res-zh').value = nsD.map(d=>d.text?.zh).filter(Boolean).join('\n') || ns.text?.zh || "";
-                block.querySelector('.opt-res-jp').value = nsD.map(d=>d.text?.jp).filter(Boolean).join('\n');
-                block.querySelector('.opt-res-kr').value = nsD.map(d=>d.text?.kr).filter(Boolean).join('\n');
-            }
-            if(opt.onFail) block.querySelector('.opt-fail-zh').value = (opt.onFail.dialogue||[]).map(d=>d.text?.zh).join('\n') || opt.onFail.text?.zh || "";
+            // 相容舊版直接寫 gold/exp 的寫法
+            if(mOnEnter.gold) mVarOpsStr.push(`gold +${mOnEnter.gold}`);
+            if(mOnEnter.exp) mVarOpsStr.push(`exp +${mOnEnter.exp}`);
+            
+            document.getElementById('mainVarOps').value = mVarOpsStr.join(', ');
+            if(node.options) node.options.forEach(o => addOption(o));
+
+            switchTab('editor');
+            triggerAllResize();
+            
+            // 🌟 自動滾動到編輯器頂部
+            setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 100);
         }
 
-        function generateJSON() {
+        function generateAndSync() {
+            const newBlock = generateJSONCore(); // 1. 先更新記憶體中的 parsedNodesDB
+            const nodeId = document.getElementById('nodeId').value || 'new_node';
+
+            // 2. 將新代碼寫入 scanInput（保留其他節點與手寫註解）
+            const ta = document.getElementById('scanInput');
+            const currentText = ta.value;
+            const anchorPattern = new RegExp(
+                `((?:DB\.templates\.push|register)\s*\(\s*\n[\s\S]*?"id"\s*:\s*"${nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[\s\S]*?\n\s*\);)`,
+                'g'
+            );
+            if (anchorPattern.test(currentText)) {
+                ta.value = currentText.replace(anchorPattern, newBlock);
+            } else {
+                const trimmed = currentText.trim();
+                ta.value = trimmed ? trimmed + "\n\n" + newBlock : newBlock;
+            }
+            triggerAllResize();
+
+            switchTab('scanner');
+            runLinter(nodeId); 
+            
+            // 🌟 3. 自動滾動到掃描區頂部
+            setTimeout(() => {
+                document.getElementById('scanInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        }
+
+        function generateJSONCore() {
             const nodeId = document.getElementById('nodeId').value || 'new_node';
             const isHub = document.getElementById('nodeType').value === 'hub';
             const scriptMode = document.getElementById('scriptMode').value;
@@ -355,15 +904,66 @@
             const buildDiag = (prefix) => {
                 const zh = getLines(prefix+'Zh'), jp = getLines(prefix+'Jp'), kr = getLines(prefix+'Kr');
                 if(!zh.length) return null;
-                return zh.map((l, i) => ({ text: { zh: l, jp: jp[i], kr: kr[i] } }));
+                return zh.map((l, i) => {
+                    let textObj = { zh: l };
+                    if(jp[i]) textObj.jp = jp[i];
+                    if(kr[i]) textObj.kr = kr[i];
+                    return { text: textObj };
+                });
             };
 
+            // 🌟 核心升級：無損繼承底板
+            // 我們把原始代碼中的物件深拷貝過來，確保那些沒做 UI 輸入框的進階屬性不會被洗掉
             let obj = { id: nodeId };
-            if(isHub) obj.isHub = true;
-            if(scriptMode === 'random') obj.type = 'middle';
-            
-            obj.dialogue = buildDiag('main') || [{ text: { zh: "..." } }];
-            if(isHub) obj.briefDialogue = buildDiag('brief');
+            if (currentEditingNodeId && parsedNodesDB[currentEditingNodeId]) {
+                obj = JSON.parse(JSON.stringify(parsedNodesDB[currentEditingNodeId].data));
+                // 清空這幾個會由 UI 重新建構的陣列與字串
+                delete obj.dialogue;
+                delete obj.briefDialogue;
+                delete obj.options;
+				if (obj.onEnter) {
+                    delete obj.onEnter.tags;
+                    delete obj.onEnter.varOps;
+                    delete obj.onEnter.gold;
+                    delete obj.onEnter.exp;
+                    delete obj.onEnter.energy;
+                }
+                delete obj.rewards; // rewards 統一升級為 onEnter，所以直接刪除
+            } else {
+                obj = { id: nodeId };
+            }
+
+            if (isHub) obj.isHub = true;
+            if (scriptMode === 'random') {
+                obj.type = 'middle';
+                const rTags = document.getElementById('reqTags').value;
+                if(rTags) obj.reqTags = rTags.split(',').map(s=>s.trim()).filter(Boolean);
+            }
+
+            // ▼▼▼ 新增：儲存主節點進入獎勵 ▼▼▼
+            const mTags = document.getElementById('mainTags').value;
+            const mVarOps = document.getElementById('mainVarOps').value;
+            if (mTags || mVarOps) {
+                obj.onEnter = obj.onEnter || {}; 
+                if (mTags) obj.onEnter.tags = mTags.split(',').map(s=>s.trim()).filter(Boolean);
+                if (mVarOps) {
+                    obj.onEnter.varOps = mVarOps.split(',').map(s => {
+                        const m = s.trim().match(/^(\w+)\s*([+\-=]|set)\s*(\-?\d+)$/i);
+						if (m) {
+							// 統一將 set 轉換為 =，確保輸出的 JSON 格式統一
+							let op = (m[2].toLowerCase() === 'set') ? '=' : m[2];
+							return { key: m[1], op: op, val: parseInt(m[3]) };
+						}
+						return null;
+                    }).filter(Boolean);
+                }
+            }
+
+            obj.dialogue = buildDiag('main') || [{ text: { zh: "（請填寫對話）" } }];
+            if (isHub) {
+                const brief = buildDiag('brief');
+                if (brief) obj.briefDialogue = brief;
+            }
 
             obj.options = [];
             document.querySelectorAll('.option-block').forEach(block => {
@@ -372,69 +972,103 @@
                 if(getInp('opt-label-jp')) opt.label.jp = getInp('opt-label-jp');
                 if(getInp('opt-label-kr')) opt.label.kr = getInp('opt-label-kr');
 
-                if(getInp('opt-cond-tags')) opt.condition = { tags: getInp('opt-cond-tags').split(',').map(s=>s.trim()) };
-                
+                const condTags = getInp('opt-cond-tags'), condNoTags = getInp('opt-cond-notags');
+                if(condTags || condNoTags) {
+                    opt.condition = {};
+                    if(condTags) opt.condition.tags = condTags.split(',').map(s=>s.trim()).filter(Boolean);
+                    if(condNoTags) opt.condition.noTag = condNoTags.trim();
+                }
+
+                const stat = getInp('opt-stat'), val = parseInt(getInp('opt-val'));
+                if (stat && !isNaN(val)) opt.check = { stat: stat, val: val };
+
                 let rew = {};
-                if(getInp('opt-gold')) rew.gold = parseInt(getInp('opt-gold'));
-                if(getInp('opt-tags')) rew.tags = getInp('opt-tags').split(',').map(s=>s.trim());
-                if(getInp('opt-varops')) {
-                    rew.varOps = getInp('opt-varops').split(',').map(s => {
-                        const m = s.trim().match(/^(\w+)\s*([+\-=])\s*(\d+)$/);
-                        return m ? { key: m[1], op: m[2], val: parseInt(m[3]) } : null;
+                if(getInp('opt-tags')) rew.tags = getInp('opt-tags').split(',').map(s=>s.trim()).filter(Boolean);
+                if(getInp('opt-rm-tags')) rew.removeTags = getInp('opt-rm-tags').split(',').map(s=>s.trim()).filter(Boolean);
+                
+                const varOpsStr = getInp('opt-varops');
+                if(varOpsStr) {
+                    rew.varOps = varOpsStr.split(',').map(s => {
+                        const m = s.trim().match(/^(\w+)\s*([+\-=]|set)\s*(\-?\d+)$/i);
+						if (m) {
+							// 統一將 set 轉換為 =，確保輸出的 JSON 格式統一
+							let op = (m[2].toLowerCase() === 'set') ? '=' : m[2];
+							return { key: m[1], op: op, val: parseInt(m[3]) };
+						}
+						return null;
                     }).filter(Boolean);
                 }
-                
+
                 const nId = getInp('opt-next-id'), resZh = getInp('opt-res-zh');
-                if(nId || resZh) {
+                
+                if (nId || resZh) {
                     opt.action = "node_next";
                     if(nId) opt.nextSceneId = nId;
-                    if(resZh) opt.nextScene = { onEnter: Object.keys(rew).length?rew:undefined, dialogue: [{ text: { zh: resZh, jp: getInp('opt-res-jp'), kr: getInp('opt-res-kr') } }] };
-                    else if(Object.keys(rew).length) opt.rewards = rew;
+                    if(resZh) {
+                        let nsText = { zh: resZh };
+                        if(getInp('opt-res-jp')) nsText.jp = getInp('opt-res-jp');
+                        if(getInp('opt-res-kr')) nsText.kr = getInp('opt-res-kr');
+                        opt.nextScene = { dialogue: [{ text: nsText }] };
+                        if(Object.keys(rew).length > 0) opt.nextScene.onEnter = rew; 
+                    } else if (Object.keys(rew).length > 0) {
+                        opt.rewards = rew; 
+                    }
                 } else {
                     opt.action = isHub ? "map_return_hub" : "advance_chain";
-                    if(Object.keys(rew).length) opt.rewards = rew;
+                    if (Object.keys(rew).length > 0) opt.rewards = rew; 
                 }
+
+                const failZh = getInp('opt-fail-zh');
+                if (failZh) opt.onFail = { dialogue: [{ text: { zh: failZh } }] };
+
                 obj.options.push(opt);
             });
 
-            const final = (scriptMode === 'random' ? `    DB.templates.push(\n` : `    register(\n`) + 
-                          `${JSON.stringify(obj, null, 4).replace(/^/gm, '        ')}\n    );`;
+            const jsonStr = JSON.stringify(obj, null, 4);
+            const wrapper = (scriptMode === 'random' ? `    DB.templates.push(\n` : `    register(\n`) + 
+                            `${jsonStr.replace(/^/gm, '        ')}\n    );`;
             
-            document.getElementById('outputCode').textContent = final;
-            if(currentEditingNodeId) {
-                parsedNodesDB[nodeId] = { mode: scriptMode, data: obj };
-                if(currentEditingNodeId !== nodeId) delete parsedNodesDB[currentEditingNodeId];
-                currentEditingNodeId = nodeId; syncParsedDBToScanner();
+            document.getElementById('outputCode').textContent = wrapper;
+
+            parsedNodesDB[nodeId] = { mode: scriptMode, data: obj };
+            if (currentEditingNodeId && currentEditingNodeId !== nodeId) {
+                delete parsedNodesDB[currentEditingNodeId]; 
             }
-            return final;
+            currentEditingNodeId = nodeId;
+
+            return wrapper;
         }
 
-        // 載入編輯
-        function loadNodeData(id) {
-            const item = parsedNodesDB[id]; if(!item) return;
-            currentEditingNodeId = id; const node = item.data;
-            document.getElementById('optionsContainer').innerHTML = '';
-            document.getElementById('nodeId').value = node.id || '';
-            document.getElementById('nodeType').value = node.isHub ? 'hub' : 'linear';
-            toggleHubMode();
-            const dStr = (arr, l) => (arr||[]).map(d => d.text?.[l]).filter(Boolean).join('\n');
-            document.getElementById('mainZh').value = dStr(node.dialogue, 'zh');
-            document.getElementById('mainJp').value = dStr(node.dialogue, 'jp');
-            document.getElementById('mainKr').value = dStr(node.dialogue, 'kr');
-            if(node.isHub) {
-                document.getElementById('briefZh').value = dStr(node.briefDialogue, 'zh');
-                document.getElementById('briefJp').value = dStr(node.briefDialogue, 'jp');
-                document.getElementById('briefKr').value = dStr(node.briefDialogue, 'kr');
-            }
-            if(node.options) node.options.forEach(o => addOption(o));
-            switchTab('editor');
-            document.querySelectorAll('textarea').forEach(autoResize);
+        function addToStash() { 
+            stashContent += generateJSONCore() + "\n\n"; 
+            localStorage.setItem('story_generator_stash', stashContent); 
+            const el = document.getElementById('stashCode');
+            el.textContent = stashContent; 
+            
+            // 🌟 自動滾動到暫存區底部
+            el.scrollIntoView({ behavior: 'smooth', block: 'end' }); 
+            alert("已加入備份暫存區！");
+        }
+        function clearStash() { 
+            if(confirm("確定清空備份？")) { 
+                stashContent = ""; 
+                localStorage.setItem('story_generator_stash', ""); 
+                document.getElementById('stashCode').textContent = "// 備份區已清空"; 
+            } 
+        }
+        function downloadJS() { 
+            if(!stashContent) return alert("暫存區為空！");
+            const blob = new Blob([stashContent], { type: 'text/javascript' }); 
+            const a = document.createElement('a'); 
+            a.href = URL.createObjectURL(blob); 
+            a.download = 'story_export.js'; 
+            a.click(); 
         }
 
-        function addToStash() { stashContent += generateJSON() + "\n\n"; localStorage.setItem('story_generator_stash', stashContent); document.getElementById('stashCode').textContent = stashContent; }
-        function clearStash() { if(confirm("確定？")) { stashContent = ""; localStorage.setItem('story_generator_stash', ""); document.getElementById('stashCode').textContent = "// 清空"; } }
-        function downloadJS() { const blob = new Blob([stashContent], { type: 'text/javascript' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'export.js'; a.click(); }
-        window.onload = () => { if(!document.querySelector('.option-block')) addOption(); };
+        window.onload = () => { 
+            if(!document.querySelector('.option-block')) addOption(); 
+            triggerAllResize();
+        };
     </script>
 </body>
 </html>

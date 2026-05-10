@@ -63,6 +63,26 @@
             </div>
 
             <div id="tab-editor" class="tab-content active scroll-area">
+			<div style="background:#1e2d36; padding:15px; margin-bottom:20px; border-radius:4px; border-left: 4px solid #4ec9b0;">
+                    <label style="color:#4ec9b0; font-size:16px;">📝 快速草稿反推填入 (支援數值與檢定)</label>
+                    <textarea id="draftInput" placeholder="請依照此格式輸入 (前綴支援全/半形冒號)：
+
+主線：你在桌上發現了一把鑰匙。
+節點條件：in_room
+節點變數：sanity -5
+
+選項：強行打開寶箱
+檢定：STR 6
+變數：hp -10, gold +50
+成功：你把寶箱砸開了，裡面裝滿金幣。
+失敗：你的手被夾到，受了點傷。
+
+選項：用鑰匙打開
+條件：has_key
+移除標籤：has_key
+跳轉：next_room_01" style="min-height: 200px; margin-bottom:10px; font-family: monospace;"></textarea>
+                    <button class="btn" style="background:#4ec9b0; color:#1e1e1e; width:100%; font-size: 16px;" onclick="parseDraftToUI()">⬇️ 自動解析並填入下方表單</button>
+                </div>
                 <div class="row form-group">
                     <div class="col">
                         <label>劇本模式</label>
@@ -201,10 +221,14 @@
                 <label style="color:#d7ba7d; margin-top:10px;">📦 劇本暫存區 (可匯出備份)</label>
                 <pre id="stashCode" style="flex: 1; background-color: #0d1117;">// 點擊「加入右側備份暫存區」會累積在這裡...</pre>
             </div>
-            <div class="row">
-                <div class="col"><button class="btn btn-clear" onclick="clearStash()">🗑️ 清空暫存</button></div>
-                <div class="col"><button class="btn btn-export" onclick="downloadJS()">💾 匯出為 .js 檔案</button></div>
-            </div>
+            <div class="row" style="margin-bottom: 10px;">
+                    <div class="col"><button class="btn btn-clear" onclick="clearStash()">🗑️ 清空暫存</button></div>
+                    <div class="col"><button class="btn btn-export" onclick="downloadJS()">💾 匯出備份 (.js)</button></div>
+                </div>
+                <div class="row">
+                    <div class="col"><button class="btn" style="background:#007acc; color:white; width:100%;" onclick="exportStoryText('zh')">📄 匯出純文本 (僅中文)</button></div>
+                    <div class="col"><button class="btn" style="background:#569cd6; color:white; width:100%;" onclick="exportStoryText('all')">🌐 匯出純文本 (多語系)</button></div>
+                </div>
         </div>
     </div>
 
@@ -431,6 +455,121 @@
             }
             triggerAllResize();
             return div;
+        }
+		function parseDraftToUI() {
+            const text = document.getElementById('draftInput').value;
+            if(!text.trim()) return alert("請先輸入草稿！");
+
+            // 1. 清空目前的表單
+            document.getElementById('mainZh').value = '';
+            document.getElementById('reqTags').value = '';
+            if(document.getElementById('mainTags')) document.getElementById('mainTags').value = '';
+            if(document.getElementById('mainVarOps')) document.getElementById('mainVarOps').value = '';
+            document.getElementById('optionsContainer').innerHTML = '';
+            optionCount = 0;
+
+            const lines = text.split('\n');
+            let currentOpt = null;
+            let lastFocus = 'main'; // 追蹤多行對話是屬於主線、成功還是失敗
+
+            // 2. 逐行解析
+            lines.forEach(line => {
+                let str = line.trim();
+                if(!str) return;
+                
+                // 找尋冒號 (支援全形或半形)
+                const colonIdx = str.indexOf(':') !== -1 ? str.indexOf(':') : str.indexOf('：');
+                
+                // 處理多行對話 (如果該行沒有冒號，且前面有觸發過對話框)
+                if (colonIdx === -1) {
+                    if (lastFocus === 'main') {
+                        const mainZh = document.getElementById('mainZh');
+                        mainZh.value += '\n' + str;
+                    } else if (lastFocus === 'success' && currentOpt) {
+                        const resZh = currentOpt.querySelector('.opt-res-zh');
+                        resZh.value += '\n' + str;
+                    } else if (lastFocus === 'fail' && currentOpt) {
+                        const failZh = currentOpt.querySelector('.opt-fail-zh');
+                        failZh.value += '\n' + str;
+                    }
+                    return; // 多行處理完直接跳下一行
+                }
+                
+                let prefix = str.substring(0, colonIdx).trim();
+                let content = str.substring(colonIdx + 1).trim();
+
+                switch(prefix) {
+                    // --- 主節點層級 ---
+                    case '主線':
+                        const mainZh = document.getElementById('mainZh');
+                        mainZh.value = mainZh.value ? mainZh.value + '\n' + content : content;
+                        lastFocus = 'main';
+                        break;
+                    case '節點條件':
+                        document.getElementById('reqTags').value = content;
+                        break;
+                    case '節點標籤':
+                    case '給予標籤': // 如果在選項出現前寫了給予標籤，視為主節點的
+                        if(!currentOpt && document.getElementById('mainTags')) document.getElementById('mainTags').value = content;
+                        else if (currentOpt) currentOpt.querySelector('.opt-tags').value = content;
+                        break;
+                    case '節點變數':
+                        if(document.getElementById('mainVarOps')) document.getElementById('mainVarOps').value = content;
+                        break;
+
+                    // --- 選項層級 ---
+                    case '選項':
+                        currentOpt = addOption();
+                        currentOpt.querySelector('.opt-label-zh').value = content;
+                        lastFocus = 'option';
+                        break;
+                    case '條件':
+                    case '選項條件':
+                        if(currentOpt) currentOpt.querySelector('.opt-cond-tags').value = content;
+                        break;
+                    case '排除':
+                    case '排除條件':
+                        if(currentOpt) currentOpt.querySelector('.opt-cond-notags').value = content;
+                        break;
+                    case '檢定':
+                        if(currentOpt) {
+                            // 支援 "STR 6", "INT, 8", "LCK: 5" 等格式
+                            const match = content.match(/([a-zA-Z]+)\s*[,:：]?\s*(\d+)/);
+                            if(match) {
+                                currentOpt.querySelector('.opt-stat').value = match[1].toUpperCase();
+                                currentOpt.querySelector('.opt-val').value = match[2];
+                            }
+                        }
+                        break;
+                    case '移除標籤':
+                        if(currentOpt) currentOpt.querySelector('.opt-rm-tags').value = content;
+                        break;
+                    case '變數':
+                    case '選項變數':
+                        if(currentOpt) currentOpt.querySelector('.opt-varops').value = content;
+                        break;
+                    case '跳轉':
+                        if(currentOpt) currentOpt.querySelector('.opt-next-id').value = content;
+                        break;
+                    case '成功':
+                        if(currentOpt) {
+                            const resZh = currentOpt.querySelector('.opt-res-zh');
+                            resZh.value = resZh.value ? resZh.value + '\n' + content : content;
+                            lastFocus = 'success';
+                        }
+                        break;
+                    case '失敗':
+                        if(currentOpt) {
+                            const failZh = currentOpt.querySelector('.opt-fail-zh');
+                            failZh.value = failZh.value ? failZh.value + '\n' + content : content;
+                            lastFocus = 'fail';
+                        }
+                        break;
+                }
+            });
+            
+            triggerAllResize();
+            alert("✅ 草稿已成功解析並填入下方表單！");
         }
 
         function runLinter(highlightId = null) {
@@ -1063,6 +1202,63 @@ while ((match = keywordRegex.exec(code)) !== null) {
             a.href = URL.createObjectURL(blob); 
             a.download = 'story_export.js'; 
             a.click(); 
+        }
+		function exportStoryText(langTarget) {
+            // 確保是最新的掃描結果
+            if (Object.keys(parsedNodesDB).length === 0) {
+                runLinter(); // 若沒掃描過，嘗試自動掃描當前文字框
+            }
+            if (Object.keys(parsedNodesDB).length === 0) {
+                return alert("目前沒有解析到任何節點！請先在掃描區貼上代碼。");
+            }
+            
+            let output = "========================================\n";
+            output += "🎮 遊戲劇本純文本匯出\n";
+            output += "========================================\n";
+            
+            for (let id in parsedNodesDB) {
+                const node = parsedNodesDB[id].data;
+                output += `\n【節點 ID: ${id}】\n`;
+                
+                // 輔助函式：根據選擇的語言抓取文字
+                const getStr = (textObj) => {
+                    if(!textObj) return "";
+                    if(langTarget === 'all') {
+                        let res = [];
+                        if(textObj.zh) res.push(`(中) ${textObj.zh}`);
+                        if(textObj.jp) res.push(`(日) ${textObj.jp}`);
+                        if(textObj.kr) res.push(`(韓) ${textObj.kr}`);
+                        return res.join('\n');
+                    }
+                    return textObj[langTarget] || "";
+                };
+
+                const getDiag = (arr) => (arr||[]).map(d => getStr(d.text)).filter(Boolean).join('\n');
+
+                output += `📖 [主線]\n${getDiag(node.dialogue) || getStr(node.text)}\n\n`;
+                
+                if (node.options && node.options.length > 0) {
+                    node.options.forEach((opt, idx) => {
+                        output += `  ▶ [選項 ${idx+1}] ${getStr(opt.label)}\n`;
+                        if (opt.nextScene) {
+                            const successText = getDiag(opt.nextScene.dialogue) || getStr(opt.nextScene.text);
+                            if (successText) output += `    ✔ (成功/後續)\n      ${successText.replace(/\n/g, '\n      ')}\n`;
+                        }
+                        if (opt.onFail) {
+                            const failText = getDiag(opt.onFail.dialogue) || getStr(opt.onFail.text);
+                            if (failText) output += `    ❌ (失敗)\n      ${failText.replace(/\n/g, '\n      ')}\n`;
+                        }
+                    });
+                }
+                output += `----------------------------------------\n`;
+            }
+
+            // 產生 txt 下載
+            const blob = new Blob([output], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Story_Dialogue_${langTarget}.txt`;
+            a.click();
         }
 
         window.onload = () => { 
